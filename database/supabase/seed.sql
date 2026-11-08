@@ -32,6 +32,11 @@ select gen_random_uuid(), id, id::text,
 from auth.users
 where email in ('alice@example.com', 'bob@example.com', 'carol@example.com', 'dave@example.com');
 
+-- Seed users skip onboarding.
+update public."Profile" set onboarded_at = now()
+where id in ('00000000-0000-0000-0000-00000000a11c', '00000000-0000-0000-0000-000000000b0b',
+             '00000000-0000-0000-0000-00000000ca01', '00000000-0000-0000-0000-00000000da7e');
+
 -- Group (trigger adds alice as admin).
 insert into public."Group" (id, name, created_by)
 values ('10000000-0000-0000-0000-000000000001', 'Glover Family', '00000000-0000-0000-0000-00000000a11c');
