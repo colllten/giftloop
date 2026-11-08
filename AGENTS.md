@@ -40,6 +40,8 @@ Database (requires Docker and the Supabase CLI; run from `database/`):
 - `supabase test db` — run pgTAP tests in `supabase/tests/`
 - `supabase db lint` — lint schemas
 - `supabase migration new <name>` — create a migration
+- After changing `config.toml`: `supabase stop && supabase start` (a running stack keeps its old config)
+- Emails (sign-in codes): Mailpit at http://127.0.0.1:54324
 
 Web app (Java 25+, run from `web/`; needs the local database running and reset):
 - `./mvnw quarkus:dev` — dev mode on http://localhost:8080 (Swagger UI: /q/swagger-ui)

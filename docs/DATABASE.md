@@ -27,7 +27,7 @@ erDiagram
 
 | Table | Notes |
 |---|---|
-| `Profile` | 1:1 with `auth.users`. `username` citext, unique, `^[A-Za-z0-9_]{3,32}$`. |
+| `Profile` | 1:1 with `auth.users`. `username` citext, unique, `^[A-Za-z0-9_]{3,32}$`. `onboarded_at` set when onboarding finishes (requires `display_name`). Birthday is `birth_month`/`birth_day` only (no year). `avatar_path` = `<user id>/<file>` in the `avatars` bucket. |
 | `Group` | `is_claims_visible_to_owner` lets owners see claims before the event ends. |
 | `GroupUser` | Membership + `role` (`admin`, `member`). Group creator is auto-added as admin. |
 | `Event` | `end_date` drives claim reveal. Null = never auto-reveal. |
@@ -36,6 +36,15 @@ erDiagram
 | `Claim` | `quantity` units of a gift. Total claimed **may exceed** `Gift.quantity`. `created_by` is not readable via the API. |
 | `ClaimParticipant` | Creator auto-added. Any participant can be `is_anonymous`. |
 | `GiftClaimSummary` (view) | Per-gift `claim_count` / `claimed_quantity`, RLS applied (security_invoker). |
+
+## Profiles & Avatars
+- New auth users get a placeholder username from their email; they choose a
+  real one during onboarding. `private.is_username_available(text)` checks
+  uniqueness (case-insensitive) without exposing other profiles.
+- `avatars` Storage bucket is private (2 MB, JPEG). Owners write under their
+  own folder; owners and co-members can read (`storage.objects` policies).
+- With `search_path = ''`, compare citext with `operator(extensions.=)`; a bare
+  `=` silently falls back to case-sensitive text equality.
 
 ## Claim Visibility
 - Group members (non-owners) see all claims on a gift.

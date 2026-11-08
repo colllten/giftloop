@@ -48,8 +48,34 @@ SQL failures in `RlsContext` are logged and rethrown as `DataAccessException`
 - Authentication: Supabase Auth issues JWTs; Quarkus verifies via JWKS.
 - Authorization: Postgres RLS ([ADR 001](decisions/001-rls-with-user-jwt.md)).
   Java code must not bypass `RlsContext` for user data.
-- Browser sign-in/cookie handling is not built yet; the API currently accepts
-  Bearer tokens only.
+- Browser sessions use HttpOnly cookies ([ADR 003](decisions/003-cookie-sessions.md));
+  API clients may send `Authorization: Bearer`.
+- Pages marked `@RequiresOnboarding` send signed-in users without a finished
+  profile to `/onboarding`.
+
+## Sign-in
+```mermaid
+sequenceDiagram
+  participant B as Browser (HTMX)
+  participant Q as Quarkus
+  participant A as Supabase Auth
+  participant M as Email
+  B->>Q: POST /signin/email
+  Q-->>B: choices fragment
+  alt Email code (default; creates account if new)
+    B->>Q: POST /signin/code
+    Q->>A: /otp (create_user)
+    A->>M: 6-digit code
+    B->>Q: POST /signin/code/verify
+    Q->>A: /verify
+  else Password
+    B->>Q: POST /signin/password or /signup/password
+    Q->>A: /token or /signup
+  end
+  A-->>Q: access + refresh tokens
+  Q-->>B: Set-Cookie gl_at, gl_rt + HX-Redirect next
+  Note over B,Q: Later requests: SessionRefreshHandler renews gl_at<br/>within 5 min of expiry using gl_rt
+```
 
 # Third-party Integrations
 The app will need to utilize other authentication methods, or integrate with
