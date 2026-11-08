@@ -6,9 +6,34 @@
   <title>{#insert title}GiftLoop{/}</title>
   <script src="/_static/htmx.org/dist/htmx.min.js" defer></script>
   <style>
+    :root { --fg: #1f2328; --muted: #57606a; --border: #d0d7de; --accent: #0b5cad; --error: #b42318;
+            --ok: #1a7f37; --bg: #fff; --panel: #f6f8fa; }
+    * { box-sizing: border-box; }
     body { font-family: system-ui, sans-serif; font-size: 1.125rem; line-height: 1.5;
-           max-width: 40rem; margin: 0 auto; padding: 1rem; color: #1f2328; background: #fff; }
-    button { font-size: 1rem; padding: .5rem 1rem; cursor: pointer; }
+           max-width: 34rem; margin: 0 auto; padding: 1rem; color: var(--fg); background: var(--bg); }
+    h1 { font-size: 1.75rem; margin: .5rem 0 1rem; }
+    a { color: var(--accent); }
+    label { display: block; font-weight: 600; margin-bottom: .25rem; }
+    .hint { display: block; color: var(--muted); font-size: 1rem; font-weight: 400; }
+    .field { margin-bottom: 1.25rem; }
+    input[type=email], input[type=password], input[type=text], select {
+      width: 100%; font-size: 1.125rem; padding: .6rem .7rem; border: 1px solid var(--border); border-radius: 6px; }
+    input:focus, select:focus, button:focus, summary:focus { outline: 3px solid #80b6f0; outline-offset: 1px; }
+    .row { display: flex; gap: .75rem; }
+    .row > * { flex: 1; }
+    button, .button { display: inline-block; font-size: 1.125rem; padding: .65rem 1.2rem; border-radius: 6px;
+           cursor: pointer; border: 1px solid var(--border); background: var(--panel); color: var(--fg); text-decoration: none; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; width: 100%; }
+    .link-button { background: none; border: none; color: var(--accent); text-decoration: underline; padding: 0; width: auto; }
+    .error { color: var(--error); margin: .25rem 0 0; }
+    .ok { color: var(--ok); margin: .25rem 0 0; }
+    .notice { background: var(--panel); border-radius: 6px; padding: .75rem 1rem; }
+    details { border: 1px solid var(--border); border-radius: 6px; padding: .75rem 1rem; margin-top: 1rem; }
+    summary { cursor: pointer; font-weight: 600; }
+    details form { margin-top: 1rem; }
+    .avatar { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; background: var(--panel); }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+    .topbar form { margin: 0; }
   </style>
 </head>
 <body>
