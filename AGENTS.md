@@ -14,7 +14,8 @@ Quarkus, HTMX, and Qute. Supabase will be the database.
 Later stages of development will include cross-platform mobile development.
 
 # Architecture
-Architecture is to be determined.
+See `docs/ARCHITECTURE.md`. All user-facing DB access goes through
+`RlsContext` (ADR 001, ADR 002).
 
 # Coding Conventions
 Code should conform to "clean code" within reason. Strict conformance is too
@@ -40,7 +41,10 @@ Database (requires Docker and the Supabase CLI; run from `database/`):
 - `supabase db lint` — lint schemas
 - `supabase migration new <name>` — create a migration
 
-App build/run commands are to be determined.
+Web app (Java 25+, run from `web/`; needs the local database running and reset):
+- `./mvnw quarkus:dev` — dev mode on http://localhost:8080 (Swagger UI: /q/swagger-ui)
+- `./mvnw test` — tests (run against local Supabase and its seed users)
+- `./mvnw package` — build `target/quarkus-app/`
 
 # Development Workflow
 1. Plan changes and propose data model
