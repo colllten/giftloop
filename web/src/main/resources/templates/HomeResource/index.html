@@ -1,0 +1,9 @@
+{#include base}
+{#title}GiftLoop{/title}
+{#main}
+<h1>GiftLoop</h1>
+<p>Shared wishlists for families and groups.</p>
+<button hx-get="/fragments/ping" hx-target="#ping-result" hx-swap="innerHTML">Check server</button>
+<p id="ping-result" aria-live="polite"></p>
+{/main}
+{/include}
