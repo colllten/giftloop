@@ -1,6 +1,5 @@
 package com.giftloop.profile;
 
-import com.giftloop.security.RlsContext;
 import io.quarkus.security.Authenticated;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -14,9 +13,6 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityScheme;
 import org.eclipse.microprofile.openapi.annotations.enums.SecuritySchemeType;
 import org.jboss.logging.Logger;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.UUID;
 
 /**
  * Endpoints for the signed-in user's profile.
@@ -31,17 +27,17 @@ public class ProfileResource {
     private static final Logger LOG = Logger.getLogger(ProfileResource.class);
 
     private final JsonWebToken jwt;
-    private final RlsContext rls;
+    private final ProfileService profiles;
 
     /**
      * Creates the resource.
      *
-     * @param jwt verified token of the caller
-     * @param rls user-scoped DB access
+     * @param jwt      verified token of the caller
+     * @param profiles profile access (RLS-scoped)
      */
-    public ProfileResource(JsonWebToken jwt, RlsContext rls) {
+    public ProfileResource(JsonWebToken jwt, ProfileService profiles) {
         this.jwt = jwt;
-        this.rls = rls;
+        this.profiles = profiles;
     }
 
     /**
@@ -53,20 +49,9 @@ public class ProfileResource {
     @GET
     @Operation(summary = "Get the signed-in user's profile")
     public ProfileDto me() {
-        ProfileDto profile = rls.inUserTransaction(jwt, connection -> {
-            try (PreparedStatement statement = connection.prepareStatement(
-                    "select id, username, display_name from \"Profile\" where id = auth.uid()");
-                 ResultSet rows = statement.executeQuery()) {
-                return rows.next()
-                        ? new ProfileDto(rows.getObject("id", UUID.class), rows.getString("username"),
-                                rows.getString("display_name"))
-                        : null;
-            }
-        });
-        if (profile == null) {
+        return profiles.findOwn(jwt).map(ProfileDto::of).orElseThrow(() -> {
             LOG.warnf("No profile found for subject %s", jwt.getSubject());
-            throw new NotFoundException("Profile not found");
-        }
-        return profile;
+            return new NotFoundException("Profile not found");
+        });
     }
 }

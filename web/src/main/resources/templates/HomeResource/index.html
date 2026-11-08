@@ -1,8 +1,18 @@
 {#include base}
 {#title}GiftLoop{/title}
 {#main}
+{#if profile}
+<div class="topbar">
+  <a href="/profile">Your profile</a>
+  {#signout /}
+</div>
+<h1>Hi, {profile.displayName}!</h1>
+{#if profile.avatarUrl}<img class="avatar" src="{profile.avatarUrl}" alt="" width="96" height="96">{/if}
+{#else}
 <h1>GiftLoop</h1>
 <p>Shared wishlists for families and groups.</p>
+<p><a class="button" href="/signin">Sign in or create an account</a></p>
+{/if}
 <button hx-get="/fragments/ping" hx-target="#ping-result" hx-swap="innerHTML">Check server</button>
 <p id="ping-result" aria-live="polite"></p>
 {/main}
