@@ -33,7 +33,14 @@ Other coding conventions are open to discussion, and should be added to this
 section if added later.
 
 # Development Commands
-Ways of running, building, and testing are to be determined.
+Database (requires Docker and the Supabase CLI; run from `database/`):
+- `supabase start` / `supabase stop` — local stack (Studio: http://127.0.0.1:54323)
+- `supabase db reset` — reapply all migrations and `seed.sql`
+- `supabase test db` — run pgTAP tests in `supabase/tests/`
+- `supabase db lint` — lint schemas
+- `supabase migration new <name>` — create a migration
+
+App build/run commands are to be determined.
 
 # Development Workflow
 1. Plan changes and propose data model
