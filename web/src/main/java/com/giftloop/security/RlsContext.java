@@ -5,12 +5,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.logging.Logger;
 
-import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Base64;
 import java.util.Objects;
 
 /**
@@ -50,7 +48,7 @@ public class RlsContext {
     public <T> T inUserTransaction(JsonWebToken jwt, SqlWork<T> work) {
         Objects.requireNonNull(jwt, "jwt");
         Objects.requireNonNull(work, "work");
-        String claimsJson = claimsJson(jwt.getRawToken());
+        String claimsJson = JwtPayload.json(jwt.getRawToken());
 
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
@@ -87,23 +85,5 @@ public class RlsContext {
         try (Statement role = connection.createStatement()) {
             role.execute("set local role " + DB_ROLE);
         }
-    }
-
-    /**
-     * Extracts the JSON payload of a compact JWS. The token must already be verified.
-     *
-     * @param rawToken compact token ({@code header.payload.signature})
-     * @return decoded payload JSON
-     * @throws IllegalArgumentException if the token is not a compact JWS
-     */
-    static String claimsJson(String rawToken) {
-        if (rawToken == null) {
-            throw new IllegalArgumentException("Token is missing");
-        }
-        String[] parts = rawToken.split("\\.");
-        if (parts.length != 3) {
-            throw new IllegalArgumentException("Token is not a compact JWS");
-        }
-        return new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
     }
 }

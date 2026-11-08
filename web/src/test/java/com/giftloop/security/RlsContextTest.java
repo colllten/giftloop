@@ -71,8 +71,8 @@ class RlsContextTest {
     /** Malformed tokens are rejected before touching the database. */
     @Test
     void claimsJsonRejectsMalformedToken() {
-        assertThrows(IllegalArgumentException.class, () -> RlsContext.claimsJson("abc"));
-        assertThrows(IllegalArgumentException.class, () -> RlsContext.claimsJson(null));
+        assertThrows(IllegalArgumentException.class, () -> JwtPayload.json("abc"));
+        assertThrows(IllegalArgumentException.class, () -> JwtPayload.json(null));
     }
 
     private JsonWebToken token(String user) throws Exception {
