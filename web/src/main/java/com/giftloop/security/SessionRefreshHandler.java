@@ -122,6 +122,7 @@ public class SessionRefreshHandler {
      * @return true to skip refresh
      */
     private static boolean isExcluded(String path) {
-        return path.startsWith("/_static/") || path.startsWith("/q/") || path.equals("/signout");
+        return path.startsWith("/_static/") || path.startsWith("/assets/") || path.startsWith("/q/")
+                || path.equals("/signout");
     }
 }

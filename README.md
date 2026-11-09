@@ -24,3 +24,4 @@ cd web
 ```
 
 Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Design system: [docs/DESIGN.md](docs/DESIGN.md).

@@ -31,6 +31,20 @@ class HomeResourceTest {
                 .then().statusCode(200);
     }
 
+    /** Pages link the shared stylesheet, and it and its fonts are served. */
+    @Test
+    void designAssetsAreServed() {
+        given().when().get("/")
+                .then().statusCode(200)
+                .body(containsString("href=\"/assets/app.css\""));
+        given().when().get("/assets/app.css")
+                .then().statusCode(200)
+                .contentType(containsString("text/css"))
+                .body(containsString("--color-primary"));
+        given().when().get("/assets/fonts/nunito-sans-latin.woff2").then().statusCode(200);
+        given().when().get("/assets/fonts/bricolage-grotesque-latin.woff2").then().statusCode(200);
+    }
+
     /** Fragment endpoint returns a snippet, not a full page. */
     @Test
     void pingReturnsFragment() {

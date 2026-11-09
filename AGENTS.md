@@ -30,6 +30,9 @@ coverage is not mandatory.
 
 Sufficient logging of all levels is recommended.
 
+UI must follow `docs/DESIGN.md`: style through the tokens in
+`assets/app.css`, never with hard-coded colors.
+
 Other coding conventions are open to discussion, and should be added to this
 section if added later.
 
