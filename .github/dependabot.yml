@@ -1,0 +1,21 @@
+# Weekly dependency updates. Quarkus platform bumps arrive as one grouped PR.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /web
+    schedule:
+      interval: weekly
+    groups:
+      quarkus:
+        patterns: ['io.quarkus*']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+  - package-ecosystem: docker
+    directory: /web/src/main/docker
+    schedule:
+      interval: weekly
