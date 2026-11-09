@@ -3,6 +3,13 @@
 ## Authentication
 Supabase Auth. A `Profile` row is created for each new auth user by trigger.
 
+- Sign in: email + password, or an emailed 6-digit code (existing accounts only).
+- Sign up: email + password (min 8), signed in immediately; no email confirmation yet.
+- Password reset: emailed recovery code → session issued → new password set via
+  Supabase `PUT /user`.
+- Code and reset requests respond identically whether or not the account exists.
+  Sign-up does reveal existing emails (unavoidable without confirmation).
+
 ## Sessions ([ADR 003](decisions/003-cookie-sessions.md))
 - `gl_at` (access token, expires with it) and `gl_rt` (refresh token, 30 days):
   HttpOnly, SameSite=Lax, Secure outside dev/test.

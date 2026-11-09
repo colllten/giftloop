@@ -55,23 +55,36 @@ SQL failures in `RlsContext` are logged and rethrown as `DataAccessException`
   profile to `/onboarding`.
 
 ## Sign-in
+Pages: `/signin` (email + password), `/signup`, `/signin/code`, `/signin/reset`.
+Each form posts via HTMX and swaps errors/next steps into `#auth-step`.
 ```mermaid
 sequenceDiagram
   participant B as Browser (HTMX)
   participant Q as Quarkus
   participant A as Supabase Auth
   participant M as Email
-  B->>Q: POST /signin/email
-  Q-->>B: choices fragment
-  alt Email code (default; creates account if new)
+  alt Sign in (default)
+    B->>Q: POST /signin/password
+    Q->>A: /token?grant_type=password
+  else Sign up
+    B->>Q: POST /signup
+    Q->>A: /signup
+  else Email code (existing accounts only)
     B->>Q: POST /signin/code
-    Q->>A: /otp (create_user)
+    Q->>A: /otp (create_user=false)
     A->>M: 6-digit code
     B->>Q: POST /signin/code/verify
-    Q->>A: /verify
-  else Password
-    B->>Q: POST /signin/password or /signup/password
-    Q->>A: /token or /signup
+    Q->>A: /verify (type=email)
+  else Forgot password
+    B->>Q: POST /signin/reset
+    Q->>A: /recover
+    A->>M: 6-digit code
+    B->>Q: POST /signin/reset/verify
+    Q->>A: /verify (type=recovery)
+    A-->>Q: session
+    Q-->>B: Set-Cookie + new password form
+    B->>Q: POST /signin/reset/password
+    Q->>A: PUT /user (password)
   end
   A-->>Q: access + refresh tokens
   Q-->>B: Set-Cookie gl_at, gl_rt + HX-Redirect next

@@ -1,0 +1,11 @@
+{#include base}
+{#title}Create an account · GiftLoop{/title}
+{#main}
+<h1>Create your GiftLoop account</h1>
+{! Sign up with Apple/Google buttons go here once providers are configured. !}
+<div id="auth-step">
+  {#include SignUpResource/signupForm /}
+</div>
+<p>Already have an account? <a href="/signin{#if next != '/'}?next={next.urlEncode}{/if}">Sign in</a></p>
+{/main}
+{/include}

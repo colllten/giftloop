@@ -1,0 +1,10 @@
+{#include base}
+{#title}Reset your password · GiftLoop{/title}
+{#main}
+<h1>Reset your password</h1>
+<div id="auth-step">
+  {#include PasswordResetResource/emailForm /}
+</div>
+<p><a href="/signin{#if next != '/'}?next={next.urlEncode}{/if}">Back to sign in</a></p>
+{/main}
+{/include}

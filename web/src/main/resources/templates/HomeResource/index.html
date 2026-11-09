@@ -11,7 +11,7 @@
 {#else}
 <h1>GiftLoop</h1>
 <p>Shared wishlists for families and groups.</p>
-<p><a class="button" href="/signin">Sign in or create an account</a></p>
+<p class="row"><a class="button primary" href="/signin">Sign in</a> <a class="button" href="/signup">Create an account</a></p>
 {/if}
 <button hx-get="/fragments/ping" hx-target="#ping-result" hx-swap="innerHTML">Check server</button>
 <p id="ping-result" aria-live="polite"></p>

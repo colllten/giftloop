@@ -91,6 +91,18 @@ public final class BrowserSession {
     }
 
     /**
+     * Creates a password account through the real pages (signs in as it).
+     *
+     * @param email    email
+     * @param password password (at least 8 characters)
+     * @return the sign-up response
+     */
+    public Response signUp(String email, String password) {
+        get("/signup");
+        return htmxPost("/signup", Map.of("email", email, "password", password, "next", "/"));
+    }
+
+    /**
      * Current CSRF token (loads {@code /signin} to obtain one if needed).
      *
      * @return token

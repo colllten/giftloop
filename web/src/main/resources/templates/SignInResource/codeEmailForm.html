@@ -1,4 +1,4 @@
-<form hx-post="/signin/email" hx-target="#signin-step">
+<form hx-post="/signin/code" hx-target="#auth-step">
   {#csrf /}
   <input type="hidden" name="next" value="{next}">
   <div class="field">
@@ -7,5 +7,5 @@
            value="{email ?: ''}" {#if error}aria-invalid="true" aria-describedby="email-error"{/if}>
     {#if error}<p id="email-error" class="error" role="alert">{error}</p>{/if}
   </div>
-  <button class="primary" type="submit">Continue</button>
+  <button class="primary" type="submit">Email me a code</button>
 </form>
