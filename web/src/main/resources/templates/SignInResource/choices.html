@@ -1,0 +1,42 @@
+<p class="notice">Signing in as <strong>{email}</strong>.
+  <a href="/signin{#if next != '/'}?next={next.urlEncode}{/if}">Use a different email</a></p>
+
+<form hx-post="/signin/code" hx-target="#signin-step">
+  {#csrf /}
+  <input type="hidden" name="email" value="{email}">
+  <input type="hidden" name="next" value="{next}">
+  <button class="primary" type="submit">Email me a sign-in code</button>
+  <span class="hint">We'll email you a 6-digit code. This works for new and existing accounts.</span>
+</form>
+
+<details {#if open == 'password'}open{/if}>
+  <summary>Sign in with my password</summary>
+  <form hx-post="/signin/password" hx-target="#signin-step">
+    {#csrf /}
+    <input type="hidden" name="email" value="{email}">
+    <input type="hidden" name="next" value="{next}">
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required
+             {#if passwordError}aria-invalid="true" aria-describedby="password-error"{/if}>
+      {#if passwordError}<p id="password-error" class="error" role="alert">{passwordError}</p>{/if}
+    </div>
+    <button type="submit">Sign in</button>
+  </form>
+</details>
+
+<details {#if open == 'signup'}open{/if}>
+  <summary>Create an account with a password</summary>
+  <form hx-post="/signup/password" hx-target="#signin-step">
+    {#csrf /}
+    <input type="hidden" name="email" value="{email}">
+    <input type="hidden" name="next" value="{next}">
+    <div class="field">
+      <label for="new-password">Choose a password <span class="hint">At least 8 characters.</span></label>
+      <input id="new-password" name="password" type="password" autocomplete="new-password" minlength="8" required
+             {#if signupError}aria-invalid="true" aria-describedby="signup-error"{/if}>
+      {#if signupError}<p id="signup-error" class="error" role="alert">{signupError}</p>{/if}
+    </div>
+    <button type="submit">Create account</button>
+  </form>
+</details>

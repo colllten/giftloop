@@ -1,0 +1,196 @@
+/*
+ * GiftLoop design system: "Evergreen" (see docs/DESIGN.md).
+ * Components use the tokens below; never hard-code colors in templates.
+ */
+
+/* ---------- Fonts (self-hosted, latin subset, SIL OFL; see fonts/OFL-*.txt) ---------- */
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("fonts/bricolage-grotesque-latin.woff2") format("woff2");
+  font-weight: 200 800; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Nunito Sans";
+  src: url("fonts/nunito-sans-latin.woff2") format("woff2");
+  font-weight: 200 1000; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Nunito Sans";
+  src: url("fonts/nunito-sans-latin-italic.woff2") format("woff2");
+  font-weight: 200 1000; font-style: italic; font-display: swap;
+}
+
+/* ---------- Tokens: light ---------- */
+:root {
+  color-scheme: light dark;
+
+  --color-bg: #F7F8F5;
+  --color-surface: #FFFFFF;
+  --color-surface-sunken: #EEF2EE;
+  --color-text: #17251E;
+  --color-text-muted: #55635B;
+  --color-border: #D6DDD7;          /* decorative dividers */
+  --color-border-strong: #7A897F;   /* input outlines (>= 3:1) */
+
+  --color-primary: #1F5A41;         /* evergreen: main actions, links */
+  --color-primary-hover: #174732;
+  --color-on-primary: #FFFFFF;
+  --color-accent: #B02A4C;          /* berry: sparing emphasis, never errors */
+  --color-on-accent: #FFFFFF;
+  --color-gold: #E3B04B;            /* ribbon: decoration only, not text */
+  --color-highlight: #F6E7C4;       /* info banners */
+  --color-on-highlight: #4A3708;
+  --color-claimed: #E2EFE7;         /* "you claimed" chip */
+  --color-on-claimed: #1F5A41;
+
+  --color-error: #B42318;
+  --color-success: #1B6E45;
+  --color-focus: #1F5A41;
+
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Nunito Sans", system-ui, sans-serif;
+
+  --text-sm: 1rem;
+  --text-base: 1.125rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.25rem;
+
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  --radius: 10px;
+  --radius-pill: 999px;
+  --tap: 2.75rem;                   /* minimum control height (44px) */
+  --content-width: 34rem;
+}
+
+/* ---------- Tokens: dark (follows the device setting) ---------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0F1A15;
+    --color-surface: #17241D;
+    --color-surface-sunken: #1E2E25;
+    --color-text: #E8EFEA;
+    --color-text-muted: #9DB0A5;
+    --color-border: #2A3A31;
+    --color-border-strong: #61766A;
+
+    --color-primary: #5FBF8F;
+    --color-primary-hover: #7FD0A6;
+    --color-on-primary: #0B1A12;
+    --color-accent: #F07A97;
+    --color-on-accent: #2A0710;
+    --color-gold: #E8BC5E;
+    --color-highlight: #3A2F14;
+    --color-on-highlight: #F1D79B;
+    --color-claimed: #1E3A2C;
+    --color-on-claimed: #8FE0B5;
+
+    --color-error: #FF8A7A;
+    --color-success: #6FD3A0;
+    --color-focus: #5FBF8F;
+  }
+}
+
+/* ---------- Base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0 auto; max-width: var(--content-width); padding: var(--space-4);
+  font-family: var(--font-body); font-size: var(--text-base); line-height: 1.5;
+  color: var(--color-text); background: var(--color-bg);
+}
+h1, h2, h3 {
+  font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em;
+  line-height: 1.15; text-wrap: balance;
+}
+h1 { font-size: var(--text-2xl); margin: var(--space-2) 0 var(--space-4); }
+h2 { font-size: var(--text-xl); margin: var(--space-5) 0 var(--space-3); }
+h3 { font-size: var(--text-lg); margin: var(--space-4) 0 var(--space-2); }
+a { color: var(--color-primary); text-underline-offset: .15em; }
+a:hover { color: var(--color-primary-hover); }
+:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+
+/* ---------- Forms ---------- */
+label { display: block; font-weight: 700; margin-bottom: var(--space-1); }
+.hint { display: block; color: var(--color-text-muted); font-size: var(--text-sm); font-weight: 400; }
+.field { margin-bottom: var(--space-5); }
+input[type=email], input[type=password], input[type=text], select {
+  width: 100%; min-height: var(--tap); font: inherit; padding: .6rem .75rem;
+  color: var(--color-text); background: var(--color-surface);
+  border: 1px solid var(--color-border-strong); border-radius: var(--radius);
+}
+input[type=file] { font: inherit; font-size: var(--text-sm); }
+[aria-invalid="true"] { border-color: var(--color-error); border-width: 2px; }
+.row { display: flex; gap: var(--space-3); }
+.row > * { flex: 1; }
+
+/* ---------- Buttons ---------- */
+button, .button {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: var(--tap); padding: .6rem 1.2rem;
+  font: 700 var(--text-base)/1.2 var(--font-body); text-decoration: none; cursor: pointer;
+  color: var(--color-primary); background: transparent;
+  border: 2px solid var(--color-primary); border-radius: var(--radius);
+}
+button:hover, .button:hover { background: var(--color-surface-sunken); color: var(--color-primary); }
+button.primary, .button.primary {
+  color: var(--color-on-primary); background: var(--color-primary); border-color: var(--color-primary);
+}
+button.primary:hover, .button.primary:hover {
+  color: var(--color-on-primary); background: var(--color-primary-hover); border-color: var(--color-primary-hover);
+}
+form > button.primary { width: 100%; }
+button + .hint { margin-top: var(--space-2); }
+.link-button {
+  min-height: 0; padding: 0; border: none; background: none;
+  color: var(--color-primary); font-weight: 400; text-decoration: underline; text-underline-offset: .15em;
+}
+.link-button:hover { background: none; color: var(--color-primary-hover); }
+
+/* ---------- Feedback ---------- */
+.error { color: var(--color-error); margin: var(--space-1) 0 0; }
+.ok { color: var(--color-success); margin: var(--space-1) 0 0; }
+.notice { background: var(--color-surface-sunken); border-radius: var(--radius); padding: var(--space-3) var(--space-4); }
+.banner {
+  background: var(--color-highlight); color: var(--color-on-highlight);
+  border-radius: var(--radius); padding: var(--space-3) var(--space-4);
+}
+
+/* ---------- Containers ---------- */
+.card {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-4);
+}
+details {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-3) var(--space-4); margin-top: var(--space-4);
+}
+summary { cursor: pointer; font-weight: 700; color: var(--color-primary); min-height: 1.75rem; }
+details form { margin-top: var(--space-4); }
+
+/* ---------- Chips (claim states) ---------- */
+.chip {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  padding: .3rem .7rem; border-radius: var(--radius-pill);
+  font-size: var(--text-sm); font-weight: 700; white-space: nowrap;
+}
+.chip-mine { background: var(--color-claimed); color: var(--color-on-claimed); }
+.chip-taken { color: var(--color-text-muted); border: 1px dashed var(--color-border-strong); }
+
+/* ---------- Layout bits ---------- */
+.avatar {
+  width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
+  background: var(--color-surface-sunken); border: 3px solid var(--color-gold);
+}
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
+.topbar form { margin: 0; }
+.brand { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em; color: var(--color-primary); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}

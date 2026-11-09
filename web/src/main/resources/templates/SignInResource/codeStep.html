@@ -1,0 +1,20 @@
+<p class="notice">We sent a 6-digit code to <strong>{email}</strong>. It may take a minute to arrive.</p>
+<form hx-post="/signin/code/verify" hx-target="#signin-step">
+  {#csrf /}
+  <input type="hidden" name="email" value="{email}">
+  <input type="hidden" name="next" value="{next}">
+  <div class="field">
+    <label for="code">Code from the email</label>
+    <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*"
+           maxlength="7" required autofocus {#if error}aria-invalid="true" aria-describedby="code-error"{/if}>
+    {#if error}<p id="code-error" class="error" role="alert">{error}</p>{/if}
+  </div>
+  <button class="primary" type="submit">Sign in</button>
+</form>
+<form hx-post="/signin/code" hx-target="#signin-step" style="margin-top:1rem">
+  {#csrf /}
+  <input type="hidden" name="email" value="{email}">
+  <input type="hidden" name="next" value="{next}">
+  <button class="link-button" type="submit">Send a new code</button>
+  · <a href="/signin{#if next != '/'}?next={next.urlEncode}{/if}">Use a different email</a>
+</form>

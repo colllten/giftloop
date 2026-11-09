@@ -1,0 +1,67 @@
+<form id="profile-form" hx-post="{#if view.onboarding}/onboarding{#else}/profile{/if}" hx-target="this" hx-swap="outerHTML"
+      enctype="multipart/form-data">
+  {#csrf /}
+  <input type="hidden" name="next" value="{view.next}">
+  {#if view.saved}<p class="ok" role="status">{view.saved}</p>{/if}
+
+  <div class="field">
+    <label for="displayName">Your name <span class="hint">What people in your groups will see, like “Grandma Jo”.</span></label>
+    <input id="displayName" name="displayName" type="text" maxlength="64" autocomplete="name" required
+           value="{view.form.displayName ?: ''}"
+           {#if view.error('displayName')}aria-invalid="true" aria-describedby="displayName-error"{/if}>
+    {#if view.error('displayName')}<p id="displayName-error" class="error" role="alert">{view.error('displayName')}</p>{/if}
+  </div>
+
+  <div class="field">
+    <label for="username">Username <span class="hint">3–32 letters, numbers or underscores. Others can use it to find you.</span></label>
+    <input id="username" name="username" type="text" maxlength="32" autocomplete="username" required
+           autocapitalize="none" spellcheck="false" value="{view.form.username ?: ''}"
+           hx-get="/onboarding/username-check" hx-trigger="input changed delay:400ms" hx-target="#username-status"
+           aria-describedby="username-status">
+    <div id="username-status" aria-live="polite">
+      {#if view.error('username')}<p class="error" role="alert">{view.error('username')}</p>{/if}
+    </div>
+  </div>
+
+  <fieldset class="field" style="border:0;padding:0;margin:0 0 1.25rem">
+    <legend style="font-weight:600">Birthday <span class="hint">Optional. Only the month and day are shared with your groups.</span></legend>
+    <div class="row">
+      <div>
+        <label for="birthMonth" class="hint">Month</label>
+        <select id="birthMonth" name="birthMonth" {#if view.error('birthday')}aria-invalid="true" aria-describedby="birthday-error"{/if}>
+          <option value="">—</option>
+          {#for m in view.months}
+          <option value="{m.value}" {#if view.form.birthMonth == m.value}selected{/if}>{m.name}</option>
+          {/for}
+        </select>
+      </div>
+      <div>
+        <label for="birthDay" class="hint">Day</label>
+        <select id="birthDay" name="birthDay" {#if view.error('birthday')}aria-invalid="true" aria-describedby="birthday-error"{/if}>
+          <option value="">—</option>
+          {#for d in 31}
+          <option value="{d}" {#if view.form.birthDay == d}selected{/if}>{d}</option>
+          {/for}
+        </select>
+      </div>
+    </div>
+    {#if view.error('birthday')}<p id="birthday-error" class="error" role="alert">{view.error('birthday')}</p>{/if}
+  </fieldset>
+
+  <div class="field">
+    <label for="avatar">Photo <span class="hint">Optional. JPEG or PNG, up to 2 MB. Only people in your groups can see it.</span></label>
+    {#if view.profile.avatarUrl}
+    <img class="avatar" src="{view.profile.avatarUrl}" alt="Your current photo" width="96" height="96">
+    {/if}
+    <input id="avatar" name="avatar" type="file" accept="image/jpeg,image/png"
+           {#if view.error('avatar')}aria-invalid="true" aria-describedby="avatar-error"{/if}>
+    {#if view.error('avatar')}<p id="avatar-error" class="error" role="alert">{view.error('avatar')}</p>{/if}
+  </div>
+
+  <button class="primary" type="submit">{#if view.onboarding}Finish{#else}Save{/if}</button>
+
+  {#if !view.onboarding && view.profile.avatarUrl}
+  <p><button class="link-button" type="button" hx-post="/profile/avatar/remove" hx-target="#profile-form"
+             hx-swap="outerHTML" hx-confirm="Remove your photo?">Remove my photo</button></p>
+  {/if}
+</form>

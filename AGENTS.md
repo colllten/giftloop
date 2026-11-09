@@ -14,7 +14,8 @@ Quarkus, HTMX, and Qute. Supabase will be the database.
 Later stages of development will include cross-platform mobile development.
 
 # Architecture
-Architecture is to be determined.
+See `docs/ARCHITECTURE.md`. All user-facing DB access goes through
+`RlsContext` (ADR 001, ADR 002).
 
 # Coding Conventions
 Code should conform to "clean code" within reason. Strict conformance is too
@@ -29,11 +30,26 @@ coverage is not mandatory.
 
 Sufficient logging of all levels is recommended.
 
+UI must follow `docs/DESIGN.md`: style through the tokens in
+`assets/app.css`, never with hard-coded colors.
+
 Other coding conventions are open to discussion, and should be added to this
 section if added later.
 
 # Development Commands
-Ways of running, building, and testing are to be determined.
+Database (requires Docker and the Supabase CLI; run from `database/`):
+- `supabase start` / `supabase stop` — local stack (Studio: http://127.0.0.1:54323)
+- `supabase db reset` — reapply all migrations and `seed.sql`
+- `supabase test db` — run pgTAP tests in `supabase/tests/`
+- `supabase db lint` — lint schemas
+- `supabase migration new <name>` — create a migration
+- After changing `config.toml`: `supabase stop && supabase start` (a running stack keeps its old config)
+- Emails (sign-in codes): Mailpit at http://127.0.0.1:54324
+
+Web app (Java 25+, run from `web/`; needs the local database running and reset):
+- `./mvnw quarkus:dev` — dev mode on http://localhost:8080 (Swagger UI: /q/swagger-ui)
+- `./mvnw test` — tests (run against local Supabase and its seed users)
+- `./mvnw package` — build `target/quarkus-app/`
 
 # Development Workflow
 1. Plan changes and propose data model
