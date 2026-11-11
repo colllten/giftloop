@@ -64,9 +64,25 @@ public class RlsContext {
                 connection.setAutoCommit(true);
             }
         } catch (SQLException e) {
-            LOG.errorf(e, "User-scoped transaction failed for subject %s", jwt.getSubject());
+            if (isRuleViolation(e)) {
+                LOG.debugf("User-scoped transaction rejected for subject %s: %s", jwt.getSubject(), e.getMessage());
+            } else {
+                LOG.errorf(e, "User-scoped transaction failed for subject %s", jwt.getSubject());
+            }
             throw new DataAccessException("User-scoped database call failed", e);
         }
+    }
+
+    /**
+     * Whether the error is an expected rule outcome (RLS/privilege denial, constraint or trigger
+     * check, or a {@code no_data_found} raised by a function) that callers handle, rather than a fault.
+     *
+     * @param e the failure
+     * @return true for SQLSTATE class 23, 42501 and P0002
+     */
+    static boolean isRuleViolation(SQLException e) {
+        String state = e.getSQLState();
+        return state != null && (state.startsWith("23") || "42501".equals(state) || "P0002".equals(state));
     }
 
     /**

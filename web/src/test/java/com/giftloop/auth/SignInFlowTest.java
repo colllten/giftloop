@@ -17,7 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Email-first sign-in through the real pages against local Supabase.
+ * Sign-in (password and emailed code), sessions and sign-out through the real pages
+ * against local Supabase.
  */
 @QuarkusTest
 class SignInFlowTest {
@@ -26,18 +27,26 @@ class SignInFlowTest {
         return "t-" + UUID.randomUUID().toString().substring(0, 8) + "@example.com";
     }
 
-    /** Valid email shows the three choices; invalid email shows an inline error. */
+    /** Sign-in page is email + password and links to sign-up, reset and code sign-in, keeping next. */
     @Test
-    void emailStepShowsChoicesOrError() {
+    void signInPageIsEmailAndPassword() {
+        new BrowserSession().get("/signin?next=/profile").then().statusCode(200)
+                .body(containsString("Email address"))
+                .body(containsString("name=\"password\""))
+                .body(containsString("href=\"/signup?next=%2Fprofile\""))
+                .body(containsString("href=\"/signin/reset?next=%2Fprofile\""))
+                .body(containsString("href=\"/signin/code?next=%2Fprofile\""));
+    }
+
+    /** Invalid email or missing password re-renders the form with an inline error. */
+    @Test
+    void passwordFormValidation() {
         BrowserSession browser = new BrowserSession();
-        browser.get("/signin").then().statusCode(200).body(containsString("Email address"));
-        browser.htmxPost("/signin/email", Map.of("email", "not-an-email", "next", "/"))
+        browser.htmxPost("/signin/password", Map.of("email", "not-an-email", "password", "x", "next", "/"))
                 .then().body(containsString("Please enter a valid email address."));
-        browser.htmxPost("/signin/email", Map.of("email", " Bob@Example.com ", "next", "/"))
-                .then().body(containsString("bob@example.com"))
-                .body(containsString("Email me a sign-in code"))
-                .body(containsString("Sign in with my password"))
-                .body(containsString("Create an account with a password"));
+        browser.htmxPost("/signin/password", Map.of("email", " Bob@Example.com ", "password", "", "next", "/"))
+                .then().body(containsString("value=\"bob@example.com\""))
+                .body(containsString("Please enter your password."));
     }
 
     /** Correct password signs in and sets HttpOnly session cookies. */
@@ -63,39 +72,16 @@ class SignInFlowTest {
         assertEquals(null, response.getHeader("HX-Redirect"));
     }
 
-    /** Short passwords are rejected; a new password account goes to onboarding. */
+    /** Emailed code: wrong code is rejected, the real code signs an existing account in. */
     @Test
-    void passwordSignUpGoesToOnboarding() {
-        BrowserSession browser = new BrowserSession();
+    void codeSignInForExistingAccount() {
         String email = newEmail();
-        browser.get("/signin");
-        browser.htmxPost("/signup/password", Map.of("email", email, "password", "short", "next", "/"))
-                .then().body(containsString("at least 8 characters"));
-        browser.htmxPost("/signup/password", Map.of("email", email, "password", "long-enough-pw", "next", "/"))
-                .then().statusCode(200).header("HX-Redirect", "/");
+        new BrowserSession().signUp(email, "long-enough-pw").then().header("HX-Redirect", "/");
 
-        browser.get("/").then().statusCode(303).header("Location", containsString("/onboarding"));
-        browser.get("/profile").then().statusCode(303).header("Location", containsString("/onboarding?next=%2Fprofile"));
-        browser.get("/onboarding").then().statusCode(200).body(containsString("Welcome to GiftLoop!"));
-    }
-
-    /** Signing up again with an existing email is refused with a hint to sign in. */
-    @Test
-    void duplicatePasswordSignUpIsRefused() {
         BrowserSession browser = new BrowserSession();
-        browser.get("/signin");
-        browser.htmxPost("/signup/password", Map.of("email", "bob@example.com", "password", "long-enough-pw", "next", "/"))
-                .then().body(containsString("already an account"));
-    }
-
-    /** Emailed code: wrong code is rejected, the real code signs in (and creates the account). */
-    @Test
-    void codeSignInCreatesAccount() {
-        BrowserSession browser = new BrowserSession();
-        String email = newEmail();
-        browser.get("/signin");
+        browser.get("/signin/code").then().statusCode(200).body(containsString("Email me a code"));
         browser.htmxPost("/signin/code", Map.of("email", email, "next", "/profile"))
-                .then().body(containsString("We sent a 6-digit code"));
+                .then().body(containsString("we sent it a 6-digit code"));
         browser.htmxPost("/signin/code/verify", Map.of("email", email, "code", "12", "next", "/profile"))
                 .then().body(containsString("Please enter the 6-digit code"));
 
@@ -106,14 +92,25 @@ class SignInFlowTest {
 
         browser.htmxPost("/signin/code/verify", Map.of("email", email, "code", code, "next", "/profile"))
                 .then().statusCode(200).header("HX-Redirect", "/profile");
-        browser.get("/profile").then().statusCode(303).header("Location", containsString("/onboarding"));
+    }
+
+    /** A code for an unknown email looks the same as for a known one and creates no account. */
+    @Test
+    void codeForUnknownEmailCreatesNoAccount() {
+        String email = newEmail();
+        BrowserSession browser = new BrowserSession();
+        browser.htmxPost("/signin/code", Map.of("email", email, "next", "/"))
+                .then().statusCode(200).body(containsString("we sent it a 6-digit code"));
+
+        new BrowserSession().signUp(email, "long-enough-pw")
+                .then().statusCode(200).header("HX-Redirect", "/");
     }
 
     /** Form posts without a CSRF token are rejected. */
     @Test
     void postWithoutCsrfIsRejected() {
         given().header("HX-Request", "true").formParam("email", "bob@example.com")
-                .post("/signin/email").then().statusCode(400);
+                .formParam("password", "password123").post("/signin/password").then().statusCode(400);
     }
 
     /** Unsafe next targets are replaced with "/". */

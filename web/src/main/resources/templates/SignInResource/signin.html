@@ -2,9 +2,10 @@
 {#title}Sign in · GiftLoop{/title}
 {#main}
 <h1>Sign in to GiftLoop</h1>
-<p>New here? Use the same steps to create your account.</p>
-<div id="signin-step">
-  {#include SignInResource/emailStep /}
+{! Sign in with Apple/Google buttons go here once providers are configured. !}
+<div id="auth-step">
+  {#include SignInResource/passwordForm /}
 </div>
+<p>New to GiftLoop? <a href="/signup{#if next != '/'}?next={next.urlEncode}{/if}">Create an account</a></p>
 {/main}
 {/include}

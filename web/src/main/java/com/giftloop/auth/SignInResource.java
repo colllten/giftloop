@@ -1,7 +1,6 @@
 package com.giftloop.auth;
 
 import com.giftloop.security.SessionCookies;
-import com.giftloop.supabase.AuthSession;
 import com.giftloop.supabase.SupabaseAuthService;
 import com.giftloop.supabase.SupabaseException;
 import com.giftloop.web.Redirects;
@@ -21,22 +20,16 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 
-import java.util.Locale;
-import java.util.regex.Pattern;
-
 /**
- * Email-first sign-in: enter email, then get a 6-digit code (default, also creates
- * accounts), sign in with a password, or create a password account. All steps
- * are HTMX fragments swapped into {@code #signin-step}.
+ * Sign-in with email and password (default) or an emailed 6-digit code, and sign-out.
+ * Form steps are HTMX fragments swapped into {@code #auth-step}. Account creation
+ * lives in {@link SignUpResource}; password reset in {@link PasswordResetResource}.
  */
 @Path("/")
 @Produces(MediaType.TEXT_HTML)
 public class SignInResource {
 
     private static final Logger LOG = Logger.getLogger(SignInResource.class);
-    private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
-    private static final Pattern CODE = Pattern.compile("^\\d{6}$");
-    private static final int EMAIL_MAX = 254;
 
     private final SupabaseAuthService auth;
     private final SessionCookies cookies;
@@ -61,37 +54,46 @@ public class SignInResource {
     @CheckedTemplate
     static class Templates {
         /**
-         * Full sign-in page (email step).
+         * Sign-in page (email + password).
+         *
+         * @param next          where to go after sign-in
+         * @param email         pre-filled email, may be null
+         * @param emailError    message for the email field, may be null
+         * @param passwordError message for the password field, may be null
+         * @return page
+         */
+        static native TemplateInstance signin(String next, String email, String emailError, String passwordError);
+
+        /**
+         * Email + password form fragment.
+         *
+         * @param next          where to go after sign-in
+         * @param email         pre-filled email, may be null
+         * @param emailError    message for the email field, may be null
+         * @param passwordError message for the password field, may be null
+         * @return fragment
+         */
+        static native TemplateInstance passwordForm(String next, String email, String emailError, String passwordError);
+
+        /**
+         * "Email me a code" page.
          *
          * @param next  where to go after sign-in
          * @param email pre-filled email, may be null
          * @param error message for the email field, may be null
          * @return page
          */
-        static native TemplateInstance signin(String next, String email, String error);
+        static native TemplateInstance code(String next, String email, String error);
 
         /**
-         * Email step fragment.
+         * Email form fragment for requesting a code.
          *
          * @param next  where to go after sign-in
          * @param email pre-filled email, may be null
          * @param error message for the email field, may be null
          * @return fragment
          */
-        static native TemplateInstance emailStep(String next, String email, String error);
-
-        /**
-         * Choose code / password / create account.
-         *
-         * @param next          where to go after sign-in
-         * @param email         chosen email
-         * @param passwordError error for the password sign-in form, may be null
-         * @param signupError   error for the create-account form, may be null
-         * @param open          which section to show expanded: {@code password}, {@code signup} or null
-         * @return fragment
-         */
-        static native TemplateInstance choices(String next, String email, String passwordError,
-                                               String signupError, String open);
+        static native TemplateInstance codeEmailForm(String next, String email, String error);
 
         /**
          * Code entry fragment.
@@ -119,49 +121,81 @@ public class SignInResource {
         if (!identity.isAnonymous()) {
             return Redirects.to(headers, safeNext).build();
         }
-        return Response.ok(Templates.signin(safeNext, null, null)).build();
+        return Response.ok(Templates.signin(safeNext, null, null, null)).build();
     }
 
     /**
-     * Validates the email and shows sign-in choices.
+     * Signs in with email and password.
      *
-     * @param email submitted email
-     * @param next  where to go after sign-in
-     * @return choices fragment, or email step with an error
+     * @param email    email address
+     * @param password password
+     * @param next     where to go after sign-in
+     * @param headers  request headers
+     * @return redirect with session cookies, or the form with an error
      */
     @POST
-    @Path("signin/email")
+    @Path("signin/password")
     @Operation(hidden = true)
-    public TemplateInstance email(@RestForm String email, @RestForm String next) {
-        String normalized = normalizeEmail(email);
+    public Response password(@RestForm String email, @RestForm String password, @RestForm String next,
+                             HttpHeaders headers) {
+        String safeNext = Redirects.safeNext(next);
+        String normalized = AuthForms.normalizeEmail(email);
         if (normalized == null) {
-            return Templates.emailStep(Redirects.safeNext(next), email, "Please enter a valid email address.");
+            return Response.ok(Templates.passwordForm(safeNext, email, AuthForms.INVALID_EMAIL, null)).build();
         }
-        return Templates.choices(Redirects.safeNext(next), normalized, null, null, null);
+        if (password == null || password.isEmpty()) {
+            return Response.ok(Templates.passwordForm(safeNext, normalized, null, AuthForms.MISSING_PASSWORD)).build();
+        }
+        try {
+            return AuthForms.signedIn(cookies, auth.signInWithPassword(normalized, password), safeNext, headers);
+        } catch (SupabaseException e) {
+            LOG.infof("Password sign-in failed: %s", e.errorCode());
+            return Response.ok(Templates.passwordForm(safeNext, normalized, null,
+                    SupabaseAuthService.userMessage(e))).build();
+        }
     }
 
     /**
-     * Emails a sign-in code.
+     * "Email me a code" page. Signed-in users go straight to {@code next}.
      *
-     * @param email chosen email
+     * @param next    where to go after sign-in
+     * @param headers request headers
+     * @return page or redirect
+     */
+    @GET
+    @Path("signin/code")
+    @Operation(hidden = true)
+    public Response codePage(@QueryParam("next") String next, HttpHeaders headers) {
+        String safeNext = Redirects.safeNext(next);
+        if (!identity.isAnonymous()) {
+            return Redirects.to(headers, safeNext).build();
+        }
+        return Response.ok(Templates.code(safeNext, null, null)).build();
+    }
+
+    /**
+     * Emails a sign-in code to an existing account. The response is the same whether
+     * or not the account exists.
+     *
+     * @param email email address
      * @param next  where to go after sign-in
-     * @return code entry fragment, or email step with an error
+     * @return code entry fragment, or the email form with an error
      */
     @POST
     @Path("signin/code")
     @Operation(hidden = true)
     public TemplateInstance sendCode(@RestForm String email, @RestForm String next) {
         String safeNext = Redirects.safeNext(next);
-        String normalized = normalizeEmail(email);
+        String normalized = AuthForms.normalizeEmail(email);
         if (normalized == null) {
-            return Templates.emailStep(safeNext, email, "Please enter a valid email address.");
+            return Templates.codeEmailForm(safeNext, email, AuthForms.INVALID_EMAIL);
         }
         try {
             auth.sendSignInCode(normalized);
             return Templates.codeStep(safeNext, normalized, null);
         } catch (SupabaseException e) {
             LOG.warnf("Sending sign-in code failed: %s", e.getMessage());
-            return Templates.emailStep(safeNext, normalized, SupabaseAuthService.userMessage(e));
+            return Templates.codeEmailForm(safeNext, normalized, SupabaseAuthService.userMessage(e));
         }
     }
 
@@ -172,7 +206,7 @@ public class SignInResource {
      * @param code    6-digit code
      * @param next    where to go after sign-in
      * @param headers request headers
-     * @return redirect with session cookies, or code step with an error
+     * @return redirect with session cookies, or the code step with an error
      */
     @POST
     @Path("signin/code/verify")
@@ -180,80 +214,19 @@ public class SignInResource {
     public Response verifyCode(@RestForm String email, @RestForm String code, @RestForm String next,
                                HttpHeaders headers) {
         String safeNext = Redirects.safeNext(next);
-        String normalized = normalizeEmail(email);
-        String digits = code == null ? "" : code.replaceAll("\\s", "");
+        String normalized = AuthForms.normalizeEmail(email);
         if (normalized == null) {
-            return Response.ok(Templates.emailStep(safeNext, email, "Please enter a valid email address.")).build();
+            return Response.ok(Templates.codeEmailForm(safeNext, email, AuthForms.INVALID_EMAIL)).build();
         }
-        if (!CODE.matcher(digits).matches()) {
-            return Response.ok(Templates.codeStep(safeNext, normalized, "Please enter the 6-digit code from the email.")).build();
+        String digits = AuthForms.normalizeCode(code);
+        if (digits == null) {
+            return Response.ok(Templates.codeStep(safeNext, normalized, AuthForms.INVALID_CODE)).build();
         }
         try {
-            return signedIn(auth.verifySignInCode(normalized, digits), safeNext, headers);
+            return AuthForms.signedIn(cookies, auth.verifySignInCode(normalized, digits), safeNext, headers);
         } catch (SupabaseException e) {
             LOG.infof("Code verification failed: %s", e.errorCode());
             return Response.ok(Templates.codeStep(safeNext, normalized, SupabaseAuthService.userMessage(e))).build();
-        }
-    }
-
-    /**
-     * Signs in with a password.
-     *
-     * @param email    chosen email
-     * @param password password
-     * @param next     where to go after sign-in
-     * @param headers  request headers
-     * @return redirect with session cookies, or choices with an error
-     */
-    @POST
-    @Path("signin/password")
-    @Operation(hidden = true)
-    public Response password(@RestForm String email, @RestForm String password, @RestForm String next,
-                             HttpHeaders headers) {
-        String safeNext = Redirects.safeNext(next);
-        String normalized = normalizeEmail(email);
-        if (normalized == null) {
-            return Response.ok(Templates.emailStep(safeNext, email, "Please enter a valid email address.")).build();
-        }
-        if (password == null || password.isEmpty()) {
-            return Response.ok(Templates.choices(safeNext, normalized, "Please enter your password.", null, "password")).build();
-        }
-        try {
-            return signedIn(auth.signInWithPassword(normalized, password), safeNext, headers);
-        } catch (SupabaseException e) {
-            LOG.infof("Password sign-in failed: %s", e.errorCode());
-            return Response.ok(Templates.choices(safeNext, normalized, SupabaseAuthService.userMessage(e), null, "password")).build();
-        }
-    }
-
-    /**
-     * Creates a password account and signs in.
-     *
-     * @param email    chosen email
-     * @param password new password
-     * @param next     where to go after sign-in
-     * @param headers  request headers
-     * @return redirect with session cookies, or choices with an error
-     */
-    @POST
-    @Path("signup/password")
-    @Operation(hidden = true)
-    public Response signUp(@RestForm String email, @RestForm String password, @RestForm String next,
-                           HttpHeaders headers) {
-        String safeNext = Redirects.safeNext(next);
-        String normalized = normalizeEmail(email);
-        if (normalized == null) {
-            return Response.ok(Templates.emailStep(safeNext, email, "Please enter a valid email address.")).build();
-        }
-        if (password == null || password.length() < 8) {
-            return Response.ok(Templates.choices(safeNext, normalized, null,
-                    "Please choose a password with at least 8 characters.", "signup")).build();
-        }
-        try {
-            return signedIn(auth.signUpWithPassword(normalized, password), safeNext, headers);
-        } catch (SupabaseException e) {
-            LOG.infof("Password sign-up failed: %s", e.errorCode());
-            return Response.ok(Templates.choices(safeNext, normalized, null, SupabaseAuthService.userMessage(e), "signup")).build();
         }
     }
 
@@ -273,24 +246,5 @@ public class SignInResource {
         }
         LOG.debug("Signed out");
         return Redirects.to(headers, "/").cookie(cookies.clear()).build();
-    }
-
-    private Response signedIn(AuthSession session, String next, HttpHeaders headers) {
-        LOG.debug("Signed in");
-        return Redirects.to(headers, next).cookie(cookies.issue(session)).build();
-    }
-
-    /**
-     * Trims and lower-cases an email; returns null if it's not plausibly valid.
-     *
-     * @param email raw input
-     * @return normalized email or null
-     */
-    static String normalizeEmail(String email) {
-        if (email == null) {
-            return null;
-        }
-        String trimmed = email.strip().toLowerCase(Locale.ROOT);
-        return trimmed.length() <= EMAIL_MAX && EMAIL.matcher(trimmed).matches() ? trimmed : null;
     }
 }

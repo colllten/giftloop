@@ -4,6 +4,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
@@ -58,7 +59,7 @@ public interface SupabaseAuthApi {
     Uni<AuthSession> tokenAsync(@QueryParam("grant_type") String grantType, Map<String, Object> body);
 
     /**
-     * Emails a one-time sign-in code, creating the user if needed.
+     * Emails a one-time sign-in code.
      *
      * @param body {@code email}, {@code create_user}
      */
@@ -67,14 +68,33 @@ public interface SupabaseAuthApi {
     void sendOtp(Map<String, Object> body);
 
     /**
+     * Emails a password recovery code. Succeeds silently for unknown emails.
+     *
+     * @param body {@code email}
+     */
+    @POST
+    @Path("/recover")
+    void recover(Map<String, Object> body);
+
+    /**
      * Verifies an emailed code.
      *
-     * @param body {@code email}, {@code token}, {@code type=email}
+     * @param body {@code email}, {@code token}, {@code type} ({@code email} or {@code recovery})
      * @return session
      */
     @POST
     @Path("/verify")
     AuthSession verify(Map<String, Object> body);
+
+    /**
+     * Updates the signed-in user (used to set a new password).
+     *
+     * @param bearer {@code Bearer <access token>}
+     * @param body   fields to change, e.g. {@code password}
+     */
+    @PUT
+    @Path("/user")
+    void updateUser(@HeaderParam("Authorization") String bearer, Map<String, Object> body);
 
     /**
      * Revokes the session's refresh tokens.

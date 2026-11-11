@@ -30,9 +30,7 @@ class OnboardingFlowTest {
     private static BrowserSession newUser() {
         BrowserSession browser = new BrowserSession();
         String email = "ob-" + UUID.randomUUID().toString().substring(0, 8) + "@example.com";
-        browser.get("/signin");
-        browser.htmxPost("/signup/password", Map.of("email", email, "password", "long-enough-pw", "next", "/"))
-                .then().header("HX-Redirect", "/");
+        browser.signUp(email, "long-enough-pw").then().header("HX-Redirect", "/");
         browser.get("/onboarding").then().statusCode(200);
         return browser;
     }

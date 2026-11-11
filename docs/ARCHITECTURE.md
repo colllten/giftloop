@@ -41,9 +41,33 @@ sequenceDiagram
   Q-->>B: 200 JSON
 ```
 
+## Groups
+`com.giftloop.group`: `GroupPageResource` (HTML), `GroupResource` (JSON reads),
+`GroupService` (SQL via `RlsContext`). Group page actions post via HTMX and
+swap the refreshed `#group-body`; leave/delete redirect home. Permission rules
+live in RLS and `private.*` functions; Java only hides actions the user can't take.
+```mermaid
+sequenceDiagram
+  participant B as Browser (HTMX)
+  participant Q as Quarkus
+  participant P as Postgres
+  B->>Q: GET /join (signed out → /signin?next=/join, then onboarding)
+  B->>Q: POST /join code=abcd-efgh
+  Q->>Q: normalize + shape check (else inline error)
+  Q->>P: select private.join_group_by_code('ABCDEFGH') as caller
+  alt code found
+    P->>P: insert GroupUser (member) on conflict do nothing
+    P-->>Q: group id
+    Q-->>B: HX-Redirect /groups/{id}
+  else unknown (P0002)
+    Q-->>B: form with "couldn't find a group"
+  end
+```
+
 # Error Handling
-SQL failures in `RlsContext` are logged and rethrown as `DataAccessException`
-(500). Missing/invalid tokens return 401 via SmallRye JWT.
+SQL failures in `RlsContext` are rethrown as `DataAccessException` (500).
+Expected rule outcomes (SQLSTATE class 23, `42501`, `P0002`) are logged at
+DEBUG and mapped by the calling service (e.g. `42501` → 403). Missing/invalid tokens return 401 via SmallRye JWT.
 
 # Authorization Boundaries
 - Authentication: Supabase Auth issues JWTs; Quarkus verifies via JWKS.
@@ -55,23 +79,36 @@ SQL failures in `RlsContext` are logged and rethrown as `DataAccessException`
   profile to `/onboarding`.
 
 ## Sign-in
+Pages: `/signin` (email + password), `/signup`, `/signin/code`, `/signin/reset`.
+Each form posts via HTMX and swaps errors/next steps into `#auth-step`.
 ```mermaid
 sequenceDiagram
   participant B as Browser (HTMX)
   participant Q as Quarkus
   participant A as Supabase Auth
   participant M as Email
-  B->>Q: POST /signin/email
-  Q-->>B: choices fragment
-  alt Email code (default; creates account if new)
+  alt Sign in (default)
+    B->>Q: POST /signin/password
+    Q->>A: /token?grant_type=password
+  else Sign up
+    B->>Q: POST /signup
+    Q->>A: /signup
+  else Email code (existing accounts only)
     B->>Q: POST /signin/code
-    Q->>A: /otp (create_user)
+    Q->>A: /otp (create_user=false)
     A->>M: 6-digit code
     B->>Q: POST /signin/code/verify
-    Q->>A: /verify
-  else Password
-    B->>Q: POST /signin/password or /signup/password
-    Q->>A: /token or /signup
+    Q->>A: /verify (type=email)
+  else Forgot password
+    B->>Q: POST /signin/reset
+    Q->>A: /recover
+    A->>M: 6-digit code
+    B->>Q: POST /signin/reset/verify
+    Q->>A: /verify (type=recovery)
+    A-->>Q: session
+    Q-->>B: Set-Cookie + new password form
+    B->>Q: POST /signin/reset/password
+    Q->>A: PUT /user (password)
   end
   A-->>Q: access + refresh tokens
   Q-->>B: Set-Cookie gl_at, gl_rt + HX-Redirect next

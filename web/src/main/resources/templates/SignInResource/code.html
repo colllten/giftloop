@@ -1,0 +1,11 @@
+{#include base}
+{#title}Sign in with a code · GiftLoop{/title}
+{#main}
+<h1>Sign in with a code</h1>
+<p>We'll email you a 6-digit code to sign in without your password.</p>
+<div id="auth-step">
+  {#include SignInResource/codeEmailForm /}
+</div>
+<p><a href="/signin{#if next != '/'}?next={next.urlEncode}{/if}">Sign in with your password</a></p>
+{/main}
+{/include}

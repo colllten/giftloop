@@ -1,5 +1,7 @@
 package com.giftloop.web;
 
+import com.giftloop.group.GroupService;
+import com.giftloop.group.GroupSummary;
 import com.giftloop.profile.Profile;
 import com.giftloop.profile.ProfileService;
 import com.giftloop.security.RequiresOnboarding;
@@ -17,9 +19,10 @@ import org.jboss.logging.Logger;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 /**
- * Landing page (signed-in greeting or sign-in prompt) and HTMX demo fragment.
+ * Landing page (signed-in: the user's groups; signed-out: sign-in prompt) and HTMX demo fragment.
  */
 @Path("/")
 @Produces(MediaType.TEXT_HTML)
@@ -30,6 +33,7 @@ public class HomeResource {
     private final SecurityIdentity identity;
     private final JsonWebToken jwt;
     private final ProfileService profiles;
+    private final GroupService groups;
 
     /**
      * Creates the resource.
@@ -37,11 +41,13 @@ public class HomeResource {
      * @param identity current identity (resolved lazily)
      * @param jwt      caller's token when signed in
      * @param profiles profile access
+     * @param groups   group access
      */
-    public HomeResource(SecurityIdentity identity, JsonWebToken jwt, ProfileService profiles) {
+    public HomeResource(SecurityIdentity identity, JsonWebToken jwt, ProfileService profiles, GroupService groups) {
         this.identity = identity;
         this.jwt = jwt;
         this.profiles = profiles;
+        this.groups = groups;
     }
 
     /**
@@ -53,9 +59,10 @@ public class HomeResource {
          * Full landing page.
          *
          * @param profile signed-in user's profile, or null when signed out
+         * @param groups  signed-in user's groups (empty when signed out)
          * @return the rendered page
          */
-        static native TemplateInstance index(Profile profile);
+        static native TemplateInstance index(Profile profile, List<GroupSummary> groups);
 
         /**
          * HTMX fragment confirming the server responded.
@@ -75,8 +82,10 @@ public class HomeResource {
     @RequiresOnboarding
     @Operation(hidden = true)
     public TemplateInstance index() {
-        Profile profile = identity.isAnonymous() ? null : profiles.findOwn(jwt).orElse(null);
-        return Templates.index(profile);
+        if (identity.isAnonymous()) {
+            return Templates.index(null, List.of());
+        }
+        return Templates.index(profiles.findOwn(jwt).orElse(null), groups.listMine(jwt));
     }
 
     /**

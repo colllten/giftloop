@@ -1,0 +1,11 @@
+<form hx-post="/signin/reset" hx-target="#auth-step">
+  {#csrf /}
+  <input type="hidden" name="next" value="{next}">
+  <div class="field">
+    <label for="email">Email address <span class="hint">We'll email you a 6-digit code.</span></label>
+    <input id="email" name="email" type="email" autocomplete="email" required autofocus
+           value="{email ?: ''}" {#if error}aria-invalid="true" aria-describedby="email-error"{/if}>
+    {#if error}<p id="email-error" class="error" role="alert">{error}</p>{/if}
+  </div>
+  <button class="primary" type="submit">Email me a code</button>
+</form>

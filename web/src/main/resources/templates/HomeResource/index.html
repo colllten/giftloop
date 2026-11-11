@@ -7,13 +7,28 @@
   {#signout /}
 </div>
 <h1>Hi, {profile.displayName}!</h1>
-{#if profile.avatarUrl}<img class="avatar" src="{profile.avatarUrl}" alt="" width="96" height="96">{/if}
+<h2>Your groups</h2>
+{#if groups.isEmpty}
+<p class="notice">You're not in any groups yet. Start one for your family or friends, or join one with a code someone shared with you.</p>
+{#else}
+<ul class="group-list">
+  {#for g in groups}
+  <li>
+    <a class="card group-link" href="/groups/{g.id}">
+      <span class="group-name">{g.name}</span>
+      <span class="hint">{g.memberCount} {#if g.memberCount == 1}member{#else}members{/if}{#if g.myRole.isAdmin} · {g.myRole.label}{/if}</span>
+    </a>
+  </li>
+  {/for}
+</ul>
+{/if}
+<p class="row"><a class="button primary" href="/groups/new">Create a group</a> <a class="button" href="/join">Join with a code</a></p>
 {#else}
 <h1>GiftLoop</h1>
 <p>Shared wishlists for families and groups.</p>
-<p><a class="button" href="/signin">Sign in or create an account</a></p>
-{/if}
+<p class="row"><a class="button primary" href="/signin">Sign in</a> <a class="button" href="/signup">Create an account</a></p>
 <button hx-get="/fragments/ping" hx-target="#ping-result" hx-swap="innerHTML">Check server</button>
 <p id="ping-result" aria-live="polite"></p>
+{/if}
 {/main}
 {/include}

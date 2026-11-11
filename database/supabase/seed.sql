@@ -1,9 +1,9 @@
 -- =============================================================================
 -- Local development seed. Loaded by `supabase db reset`. Never run in prod.
 -- All users sign in with password: password123
---   alice@example.com  admin of "Glover Family", has a wishlist
+--   alice@example.com  owner of "Glover Family" (join code GLVR-FAM2), has a wishlist
 --   bob@example.com    member, claimed Alice's headphones with Carol (anonymous)
---   carol@example.com  member
+--   carol@example.com  admin
 --   dave@example.com   not in any group (use to check isolation)
 -- =============================================================================
 
@@ -37,13 +37,17 @@ update public."Profile" set onboarded_at = now()
 where id in ('00000000-0000-0000-0000-00000000a11c', '00000000-0000-0000-0000-000000000b0b',
              '00000000-0000-0000-0000-00000000ca01', '00000000-0000-0000-0000-00000000da7e');
 
--- Group (trigger adds alice as admin).
+-- Group (triggers add alice as owner and a random join code; pinned below for tests).
 insert into public."Group" (id, name, created_by)
 values ('10000000-0000-0000-0000-000000000001', 'Glover Family', '00000000-0000-0000-0000-00000000a11c');
 
-insert into public."GroupUser" (group_id, user_id) values
-  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000b0b'),
-  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000ca01');
+insert into public."GroupUser" (group_id, user_id, role) values
+  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000b0b', 'member'),
+  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000ca01', 'admin');
+
+-- Join code GLVR-FAM2.
+update public."GroupJoinCode" set code = 'GLVRFAM2'
+where group_id = '10000000-0000-0000-0000-000000000001';
 
 insert into public."Event" (id, group_id, name, end_date, created_by)
 values ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001',

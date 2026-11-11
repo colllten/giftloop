@@ -1,5 +1,5 @@
-<p class="notice">We sent a 6-digit code to <strong>{email}</strong>. It may take a minute to arrive.</p>
-<form hx-post="/signin/code/verify" hx-target="#signin-step">
+<p class="notice">If <strong>{email}</strong> has a GiftLoop account, we sent it a 6-digit code. It may take a minute to arrive.</p>
+<form hx-post="/signin/code/verify" hx-target="#auth-step">
   {#csrf /}
   <input type="hidden" name="email" value="{email}">
   <input type="hidden" name="next" value="{next}">
@@ -11,10 +11,10 @@
   </div>
   <button class="primary" type="submit">Sign in</button>
 </form>
-<form hx-post="/signin/code" hx-target="#signin-step" style="margin-top:1rem">
+<form hx-post="/signin/code" hx-target="#auth-step" style="margin-top:1rem">
   {#csrf /}
   <input type="hidden" name="email" value="{email}">
   <input type="hidden" name="next" value="{next}">
   <button class="link-button" type="submit">Send a new code</button>
-  · <a href="/signin{#if next != '/'}?next={next.urlEncode}{/if}">Use a different email</a>
+  · <a href="/signin/code{#if next != '/'}?next={next.urlEncode}{/if}">Use a different email</a>
 </form>

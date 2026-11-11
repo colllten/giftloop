@@ -8,13 +8,17 @@ import org.jboss.logging.Logger;
 import java.util.Map;
 
 /**
- * Sign-up, sign-in (password or emailed code), refresh and sign-out against Supabase Auth.
+ * Sign-up, sign-in (password or emailed code), password reset, refresh and sign-out
+ * against Supabase Auth.
  * Failures surface as {@link SupabaseException}; {@link #userMessage} gives friendly text.
  */
 @ApplicationScoped
 public class SupabaseAuthService {
 
     private static final Logger LOG = Logger.getLogger(SupabaseAuthService.class);
+
+    /** Supabase error when {@code /otp} is called with {@code create_user=false} for an unknown email. */
+    static final String OTP_NO_ACCOUNT = "otp_disabled";
 
     private final SupabaseAuthApi api;
 
@@ -56,13 +60,53 @@ public class SupabaseAuthService {
     }
 
     /**
-     * Emails a 6-digit sign-in code. Creates the account if it doesn't exist.
+     * Emails a 6-digit sign-in code to an existing account. Never creates accounts.
+     * Unknown emails are ignored silently so callers can't tell whether an account exists.
      *
      * @param email email address
      */
     public void sendSignInCode(String email) {
-        api.sendOtp(Map.of("email", email, "create_user", true));
-        LOG.debug("Sign-in code sent");
+        try {
+            api.sendOtp(Map.of("email", email, "create_user", false));
+            LOG.debug("Sign-in code sent");
+        } catch (SupabaseException e) {
+            if (!OTP_NO_ACCOUNT.equals(e.errorCode())) {
+                throw e;
+            }
+            LOG.debug("Sign-in code requested for unknown email; ignored");
+        }
+    }
+
+    /**
+     * Emails a 6-digit password reset code. Unknown emails are ignored by Supabase.
+     *
+     * @param email email address
+     */
+    public void sendPasswordResetCode(String email) {
+        api.recover(Map.of("email", email));
+        LOG.debug("Password reset code sent");
+    }
+
+    /**
+     * Verifies a password reset code. The returned session is used to set the new password.
+     *
+     * @param email email address the code was sent to
+     * @param code  6-digit code
+     * @return session
+     */
+    public AuthSession verifyPasswordResetCode(String email, String code) {
+        return api.verify(Map.of("email", email, "token", code, "type", "recovery"));
+    }
+
+    /**
+     * Sets a new password for the signed-in user.
+     *
+     * @param accessToken user's access token
+     * @param password    new password
+     */
+    public void updatePassword(String accessToken, String password) {
+        api.updateUser("Bearer " + accessToken, Map.of("password", password));
+        LOG.info("Password changed");
     }
 
     /**
@@ -109,9 +153,10 @@ public class SupabaseAuthService {
     public static String userMessage(SupabaseException e) {
         String code = e.errorCode() == null ? "" : e.errorCode();
         return switch (code) {
-            case "invalid_credentials" -> "That email and password don't match. Try again, or get a code by email instead.";
+            case "invalid_credentials" -> "That email and password don't match. Try again, or reset your password.";
             case "otp_expired" -> "That code is wrong or has expired. Check the email or send a new code.";
             case "user_already_exists", "email_exists" -> "There's already an account with this email. Sign in instead.";
+            case "same_password" -> "Your new password must be different from your old one.";
             case "weak_password" -> "Please choose a password with at least 8 characters.";
             case "email_address_invalid", "validation_failed" -> "Please check the email address.";
             case "over_email_send_rate_limit", "over_request_rate_limit" -> "Too many attempts. Please wait a minute and try again.";

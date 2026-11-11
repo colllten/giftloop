@@ -3,6 +3,13 @@
 ## Authentication
 Supabase Auth. A `Profile` row is created for each new auth user by trigger.
 
+- Sign in: email + password, or an emailed 6-digit code (existing accounts only).
+- Sign up: email + password (min 8), signed in immediately; no email confirmation yet.
+- Password reset: emailed recovery code → session issued → new password set via
+  Supabase `PUT /user`.
+- Code and reset requests respond identically whether or not the account exists.
+  Sign-up does reveal existing emails (unavoidable without confirmation).
+
 ## Sessions ([ADR 003](decisions/003-cookie-sessions.md))
 - `gl_at` (access token, expires with it) and `gl_rt` (refresh token, 30 days):
   HttpOnly, SameSite=Lax, Secure outside dev/test.
@@ -16,7 +23,9 @@ Supabase Auth. A `Profile` row is created for each new auth user by trigger.
 Enforced in Postgres with RLS using the caller's JWT. See
 [ADR 001](decisions/001-rls-with-user-jwt.md) and [DATABASE.md](DATABASE.md#claim-visibility).
 
-- All data is scoped to group membership.
+- All data is scoped to group membership. Membership is created only by the
+  group creator trigger or by entering the group's join code; nobody can add
+  another user directly.
 - Claims are hidden from wishlist owners until reveal; anonymous participants
   are hidden from everyone not on the claim.
 - Avatars are private: served by Quarkus after Storage RLS confirms the viewer
