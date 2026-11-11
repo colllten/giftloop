@@ -26,7 +26,10 @@ final class AuthForms {
     static final String INVALID_CODE = "Please enter the 6-digit code from the email.";
 
     private static final Logger LOG = Logger.getLogger(AuthForms.class);
-    private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    // Linear time (CodeQL polynomial-ReDoS fix): the first domain label excludes '.', so the
+    // dot has one possible position, and possessive quantifiers never backtrack. No repeated
+    // group, which Java matches recursively (stack overflow on long input).
+    static final Pattern EMAIL = Pattern.compile("^[^@\\s]++@[^@\\s.]++\\.[^@\\s]++$");
     private static final Pattern CODE = Pattern.compile("^\\d{6}$");
     private static final int EMAIL_MAX = 254;
     private static final int PASSWORD_MIN = 8;
