@@ -8,11 +8,13 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.logging.Logger;
+import org.postgresql.util.PSQLException;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -31,8 +33,10 @@ public class GroupService {
 
     private static final Logger LOG = Logger.getLogger(GroupService.class);
     private static final String INSUFFICIENT_PRIVILEGE = "42501";
-    private static final String NO_DATA_FOUND = "P0002";
+    private static final String RATE_LIMITED = "PT429";
     private static final String CHECK_VIOLATION = "23514";
+    /** Mirrors {@code c_window} in {@code private.join_group_by_code}. */
+    private static final Duration JOIN_FAILURE_WINDOW = Duration.ofMinutes(15);
 
     private final RlsContext rls;
 
@@ -123,19 +127,22 @@ public class GroupService {
     }
 
     /**
-     * Joins the group with this code as a member (no change if already a member).
+     * Joins the group with this code as a member (no change if already a member). Unknown codes
+     * count toward the caller's failed-attempt limit; malformed ones never reach the database.
      *
      * @param jwt  caller's verified token
      * @param code join code in any case, with or without separators
      * @return group id, or empty if the code is malformed or unknown
+     * @throws JoinRateLimitedException if the caller entered too many incorrect codes recently
      */
     public Optional<UUID> join(JsonWebToken jwt, String code) {
         String normalized = JoinCode.normalize(code);
         if (!JoinCode.isWellFormed(normalized)) {
             return Optional.empty();
         }
+        UUID id;
         try {
-            UUID id = run(jwt, c -> {
+            id = run(jwt, c -> {
                 try (PreparedStatement s = c.prepareStatement("select private.join_group_by_code(?)")) {
                     s.setString(1, normalized);
                     try (ResultSet r = s.executeQuery()) {
@@ -144,15 +151,20 @@ public class GroupService {
                     }
                 }
             });
-            LOG.infof("User %s joined group %s", jwt.getSubject(), id);
-            return Optional.of(id);
         } catch (DataAccessException e) {
-            if (NO_DATA_FOUND.equals(sqlState(e))) {
-                LOG.infof("User %s entered an unknown join code", jwt.getSubject());
-                return Optional.empty();
+            if (RATE_LIMITED.equals(sqlState(e))) {
+                Duration retryAfter = retryAfter(e);
+                LOG.warnf("User %s is rate limited from joining groups for %s", jwt.getSubject(), retryAfter);
+                throw new JoinRateLimitedException(retryAfter);
             }
             throw e;
         }
+        if (id == null) {
+            LOG.infof("User %s entered an unknown join code", jwt.getSubject());
+            return Optional.empty();
+        }
+        LOG.infof("User %s joined group %s", jwt.getSubject(), id);
+        return Optional.of(id);
     }
 
     /**
@@ -323,5 +335,20 @@ public class GroupService {
 
     private static String sqlState(DataAccessException e) {
         return e.getCause() instanceof SQLException sql ? sql.getSQLState() : null;
+    }
+
+    /**
+     * Seconds until retry, from the {@code PT429} error's DETAIL. Falls back to the full
+     * window if the detail is missing (it is always set by {@code join_group_by_code}).
+     */
+    private static Duration retryAfter(DataAccessException e) {
+        if (e.getCause() instanceof PSQLException pg && pg.getServerErrorMessage() != null) {
+            try {
+                return Duration.ofSeconds(Long.parseLong(pg.getServerErrorMessage().getDetail()));
+            } catch (NumberFormatException ignored) {
+                LOG.warnf("Unexpected join rate limit detail: %s", pg.getServerErrorMessage().getDetail());
+            }
+        }
+        return JOIN_FAILURE_WINDOW;
     }
 }

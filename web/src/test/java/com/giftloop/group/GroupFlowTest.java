@@ -105,6 +105,26 @@ class GroupFlowTest {
         outsider.browser().get(path(id, "")).then().statusCode(404);
     }
 
+    /**
+     * After 5 unknown codes, every attempt (even the right code) is refused with a wait time.
+     * Malformed codes don't count. Uses {@code outsider}, which no other test joins with.
+     */
+    @Test
+    void joinRateLimit() {
+        UUID id = createGroup("Rate Limit Test");
+        String code = joinCode(owner, id);
+
+        join(outsider, "nope").then().body(containsString("8 letters and numbers"));
+        for (int i = 0; i < 5; i++) {
+            join(outsider, "ZZZZ-ZZZZ").then().body(containsString("find a group with that code"));
+        }
+        join(outsider, "ZZZZ-ZZZZ").then().statusCode(200)
+                .body(containsString("Too many incorrect codes. Try again in 15 minutes."));
+        join(outsider, code).then().statusCode(200).header("HX-Redirect", nullValue())
+                .body(containsString("Too many incorrect codes."));
+        outsider.browser().get(path(id, "")).then().statusCode(404);
+    }
+
     /** Regenerating replaces the code; the old one stops working. Members can't regenerate. */
     @Test
     void regenerateCode() {

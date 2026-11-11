@@ -20,6 +20,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.resteasy.reactive.RestForm;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -168,11 +169,27 @@ public class GroupPageResource {
         if (!JoinCode.isWellFormed(JoinCode.normalize(code))) {
             return Response.ok(Templates.joinForm(code, MALFORMED_CODE)).build();
         }
-        Optional<UUID> id = groups.join(jwt, code);
+        Optional<UUID> id;
+        try {
+            id = groups.join(jwt, code);
+        } catch (JoinRateLimitedException e) {
+            return Response.ok(Templates.joinForm(code, rateLimitedMessage(e.retryAfter()))).build();
+        }
         if (id.isEmpty()) {
             return Response.ok(Templates.joinForm(code, UNKNOWN_CODE)).build();
         }
         return Redirects.to(headers, groupPath(id.get())).build();
+    }
+
+    /**
+     * Join form error while rate limited, with the wait rounded up to whole minutes.
+     *
+     * @param retryAfter time until the user may try again
+     * @return e.g. "Too many incorrect codes. Try again in 12 minutes."
+     */
+    static String rateLimitedMessage(Duration retryAfter) {
+        long minutes = Math.max(1, (retryAfter.toSeconds() + 59) / 60);
+        return "Too many incorrect codes. Try again in " + minutes + (minutes == 1 ? " minute." : " minutes.");
     }
 
     /**

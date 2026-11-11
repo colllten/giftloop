@@ -55,18 +55,23 @@ sequenceDiagram
   B->>Q: POST /join code=abcd-efgh
   Q->>Q: normalize + shape check (else inline error)
   Q->>P: select private.join_group_by_code('ABCDEFGH') as caller
-  alt code found
+  alt 5 failures in last 15 min (PT429)
+    P-->>Q: error, DETAIL = seconds until retry
+    Q-->>B: form with "Try again in N minutes"
+  else code found
     P->>P: insert GroupUser (member) on conflict do nothing
     P-->>Q: group id
     Q-->>B: HX-Redirect /groups/{id}
-  else unknown (P0002)
+  else unknown
+    P->>P: insert JoinCodeFailure
+    P-->>Q: null
     Q-->>B: form with "couldn't find a group"
   end
 ```
 
 # Error Handling
 SQL failures in `RlsContext` are rethrown as `DataAccessException` (500).
-Expected rule outcomes (SQLSTATE class 23, `42501`, `P0002`) are logged at
+Expected rule outcomes (SQLSTATE class 23, `42501`, `P0002`, `PT429`) are logged at
 DEBUG and mapped by the calling service (e.g. `42501` → 403). Missing/invalid tokens return 401 via SmallRye JWT.
 
 # Authorization Boundaries
