@@ -1,0 +1,97 @@
+{#let g=view.group}
+<h1>{g.name}</h1>
+<p class="hint">You're {#if g.callerIsOwner}the owner{#else if g.myRole.isAdmin}an admin{#else}a member{/if} · {g.members.size} {#if g.members.size == 1}member{#else}members{/if}</p>
+{#if view.notice}<p class="ok" role="status">{view.notice}</p>{/if}
+
+{#if g.joinCode}
+<section class="card" aria-labelledby="invite-heading">
+  <h2 id="invite-heading">Invite people</h2>
+  <p>Share this code. They enter it on <a href="/join">Join a group</a> after signing in.</p>
+  <p class="join-code" aria-label="Join code {g.formattedJoinCode}">{g.formattedJoinCode}</p>
+  <form hx-post="/groups/{g.id}/code" hx-target="#group-body"
+        hx-confirm="Make a new code? The current code will stop working.">
+    {#csrf /}
+    <button type="submit">Make a new code</button>
+  </form>
+</section>
+{/if}
+
+<h2>Members</h2>
+<ul class="member-list">
+{#for m in g.members}
+  <li class="member">
+    {#if m.avatarUrl}
+    <img class="avatar avatar-sm" src="{m.avatarUrl}" alt="" width="44" height="44">
+    {#else}
+    <span class="avatar avatar-sm avatar-initial" aria-hidden="true">{m.initial}</span>
+    {/if}
+    <span class="member-info">
+      <span class="member-name">{m.name}{#if m.me} (you){/if}</span>
+      <span class="hint">@{m.username}</span>
+    </span>
+    {#if m.role.isAdmin}<span class="chip chip-role">{m.role.label}</span>{/if}
+    {#if g.hasActions(m)}
+    <details class="member-actions">
+      <summary>Manage {m.name}</summary>
+      {#if g.canManageRole(m)}
+      <form hx-post="/groups/{g.id}/members/{m.userId}/role" hx-target="#group-body">
+        {#csrf /}
+        {#if m.role.isAdmin}
+        <input type="hidden" name="role" value="member">
+        <button type="submit">Make member</button>
+        {#else}
+        <input type="hidden" name="role" value="admin">
+        <button type="submit">Make admin</button>
+        {/if}
+      </form>
+      <form hx-post="/groups/{g.id}/transfer" hx-target="#group-body"
+            hx-confirm="Make {m.name} the owner of {g.name}? You'll become an admin.">
+        {#csrf /}
+        <input type="hidden" name="userId" value="{m.userId}">
+        <button type="submit">Make owner</button>
+      </form>
+      {/if}
+      {#if g.canRemove(m)}
+      <form hx-post="/groups/{g.id}/members/{m.userId}/remove" hx-target="#group-body"
+            hx-confirm="Remove {m.name} from {g.name}?">
+        {#csrf /}
+        <button type="submit" class="danger">Remove from group</button>
+      </form>
+      {/if}
+    </details>
+    {/if}
+  </li>
+{/for}
+</ul>
+
+{#if g.myRole.isAdmin}
+<details {#if view.error('name')}open{/if}>
+  <summary>Rename group</summary>
+  <form hx-post="/groups/{g.id}/rename" hx-target="#group-body">
+    {#csrf /}
+    <div class="field">
+      <label for="group-name">Group name</label>
+      <input id="group-name" name="name" type="text" maxlength="100" required value="{view.nameValue ?: ''}"
+             {#if view.error('name')}aria-invalid="true" aria-describedby="group-name-error"{/if}>
+      {#if view.error('name')}<p id="group-name-error" class="error" role="alert">{view.error('name')}</p>{/if}
+    </div>
+    <button type="submit">Save name</button>
+  </form>
+</details>
+{/if}
+
+<h2>{#if g.callerIsOwner}Delete group{#else}Leave group{/if}</h2>
+{#if g.callerIsOwner}
+<p class="hint">To leave, first make another member the owner.</p>
+<form hx-post="/groups/{g.id}/delete"
+      hx-confirm="Delete {g.name} for everyone? Its events and wishlists are deleted too. This can't be undone.">
+  {#csrf /}
+  <button type="submit" class="danger">Delete group</button>
+</form>
+{#else}
+<form hx-post="/groups/{g.id}/leave" hx-confirm="Leave {g.name}? You'll need a new code to rejoin.">
+  {#csrf /}
+  <button type="submit" class="danger">Leave group</button>
+</form>
+{/if}
+{/let}

@@ -1,0 +1,11 @@
+<form hx-post="/join" hx-target="this" hx-swap="outerHTML">
+  {#csrf /}
+  <div class="field">
+    <label for="code">Join code <span class="hint">8 letters and numbers, like ABCD-EFGH. Capitals and dashes don't matter.</span></label>
+    <input id="code" name="code" type="text" maxlength="20" required autofocus autocomplete="off"
+           autocapitalize="characters" spellcheck="false" class="join-code-input" value="{code ?: ''}"
+           {#if error}aria-invalid="true" aria-describedby="code-error"{/if}>
+    {#if error}<p id="code-error" class="error" role="alert">{error}</p>{/if}
+  </div>
+  <button class="primary" type="submit">Join group</button>
+</form>
