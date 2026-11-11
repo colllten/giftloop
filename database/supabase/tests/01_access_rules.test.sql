@@ -46,15 +46,25 @@ select lives_ok(
 select is(
   (select role::text from public."GroupUser"
    where group_id = '22222222-0000-0000-0000-000000000001' and user_id = '11111111-0000-0000-0000-00000000000b'),
-  'admin', 'group creator becomes admin'
+  'owner', 'group creator becomes owner'
 );
-select lives_ok(
-  $$ insert into public."GroupUser" (group_id, user_id) values
-       ('22222222-0000-0000-0000-000000000001', '11111111-0000-0000-0000-00000000000a'),
-       ('22222222-0000-0000-0000-000000000001', '11111111-0000-0000-0000-00000000000c'),
-       ('22222222-0000-0000-0000-000000000001', '11111111-0000-0000-0000-00000000000d'),
-       ('22222222-0000-0000-0000-000000000001', '11111111-0000-0000-0000-00000000000e') $$,
-  'admin can add members'
+
+-- Others join with the group's join code.
+reset role;
+select set_config('test.join_code',
+  (select code from public."GroupJoinCode" where group_id = '22222222-0000-0000-0000-000000000001'), true);
+select pg_temp.act_as('11111111-0000-0000-0000-00000000000a');
+select private.join_group_by_code(current_setting('test.join_code'));
+select pg_temp.act_as('11111111-0000-0000-0000-00000000000c');
+select private.join_group_by_code(current_setting('test.join_code'));
+select pg_temp.act_as('11111111-0000-0000-0000-00000000000d');
+select private.join_group_by_code(current_setting('test.join_code'));
+select pg_temp.act_as('11111111-0000-0000-0000-00000000000e');
+select private.join_group_by_code(current_setting('test.join_code'));
+select pg_temp.act_as('11111111-0000-0000-0000-00000000000b');
+select is(
+  (select count(*)::int from public."GroupUser" where group_id = '22222222-0000-0000-0000-000000000001'),
+  5, 'members join with the join code'
 );
 select lives_ok(
   $$ insert into public."Event" (id, group_id, name, end_date)
@@ -62,12 +72,12 @@ select lives_ok(
   'member can create an event'
 );
 
--- Non-admin cannot add members.
+-- Nobody inserts membership directly.
 select pg_temp.act_as('11111111-0000-0000-0000-00000000000c');
 select throws_ok(
   $$ insert into public."GroupUser" (group_id, user_id)
      values ('22222222-0000-0000-0000-000000000001', '11111111-0000-0000-0000-00000000000f') $$,
-  '42501', null, 'non-admin cannot add members'
+  '42501', null, 'members cannot be inserted directly'
 );
 
 -- Owner builds a wishlist.
