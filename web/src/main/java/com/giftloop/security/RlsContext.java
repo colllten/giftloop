@@ -75,14 +75,16 @@ public class RlsContext {
 
     /**
      * Whether the error is an expected rule outcome (RLS/privilege denial, constraint or trigger
-     * check, or a {@code no_data_found} raised by a function) that callers handle, rather than a fault.
+     * check, a {@code no_data_found} or a rate limit raised by a function) that callers handle,
+     * rather than a fault.
      *
      * @param e the failure
-     * @return true for SQLSTATE class 23, 42501 and P0002
+     * @return true for SQLSTATE class 23, 42501, P0002 and PT429
      */
     static boolean isRuleViolation(SQLException e) {
         String state = e.getSQLState();
-        return state != null && (state.startsWith("23") || "42501".equals(state) || "P0002".equals(state));
+        return state != null && (state.startsWith("23") || "42501".equals(state) || "P0002".equals(state)
+                || "PT429".equals(state));
     }
 
     /**

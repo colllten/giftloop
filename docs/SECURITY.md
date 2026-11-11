@@ -26,6 +26,9 @@ Enforced in Postgres with RLS using the caller's JWT. See
 - All data is scoped to group membership. Membership is created only by the
   group creator trigger or by entering the group's join code; nobody can add
   another user directly.
+- Join codes: 5 unknown codes per user per 15 minutes (sliding), then all join
+  attempts are refused until the oldest failure expires. Enforced in
+  `join_group_by_code`. Sign-up spam is limited by Supabase Auth's per-IP limits.
 - Claims are hidden from wishlist owners until reveal; anonymous participants
   are hidden from everyone not on the claim.
 - Avatars are private: served by Quarkus after Storage RLS confirms the viewer

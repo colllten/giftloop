@@ -51,7 +51,7 @@ select ok(
 
 -- ------------------------------------------------------------ join
 select pg_temp.act_as('99999999-0000-0000-0000-00000000000e');
-select throws_ok($$ select private.join_group_by_code('ZZZZZZZZ') $$, 'P0002', null, 'unknown code is rejected');
+select is(private.join_group_by_code('ZZZZZZZZ'), null, 'unknown code returns null');
 select is((select count(*)::int from public."Group" where id = '99999999-0000-0000-0000-000000000001'),
   0, 'outsider cannot see the group');
 
@@ -101,8 +101,7 @@ select pg_temp.act_as('99999999-0000-0000-0000-00000000000b');
 select isnt(private.regenerate_join_code('99999999-0000-0000-0000-000000000001'),
   current_setting('test.old_code'), 'admin regenerates the code');
 select pg_temp.act_as('99999999-0000-0000-0000-00000000000e');
-select throws_ok($$ select private.join_group_by_code(current_setting('test.old_code')) $$,
-  'P0002', null, 'old code stops working');
+select is(private.join_group_by_code(current_setting('test.old_code')), null, 'old code stops working');
 select throws_ok($$ insert into public."GroupJoinCode" (group_id, code)
   values ('99999999-0000-0000-0000-000000000001', 'ABCDEFGH') $$,
   '42501', null, 'join codes cannot be written directly');

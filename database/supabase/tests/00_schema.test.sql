@@ -1,10 +1,10 @@
 -- Schema-level guarantees: tables exist, RLS on everywhere, anon has no access.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(17);
 
 select has_table('public', t, format('table %s exists', t))
-from unnest(array['Profile','Group','GroupUser','GroupJoinCode','Event','Wishlist','Gift','Claim','ClaimParticipant']) as t;
+from unnest(array['Profile','Group','GroupUser','GroupJoinCode','Event','Wishlist','Gift','Claim','ClaimParticipant','JoinCodeFailure']) as t;
 
 select is(
   (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -35,6 +35,11 @@ select ok(
 select ok(
   not has_table_privilege('authenticated', 'public."GroupUser"', 'INSERT'),
   'GroupUser has no direct insert (join via code only)'
+);
+
+select ok(
+  not has_table_privilege('authenticated', 'public."JoinCodeFailure"', 'SELECT, INSERT, UPDATE, DELETE'),
+  'JoinCodeFailure is not accessible to authenticated'
 );
 
 select * from finish();

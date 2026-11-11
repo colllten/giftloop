@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Rate limit failed group joins: 5 unknown join codes per user per 15 minutes,
+  then joining is blocked until the oldest failure expires.
 - CI/CD (GitHub Actions): DB lint + pgTAP, web tests, image build (GHCR on
   `main`), CodeQL, Dependabot, and approval-gated prod migrations. See
   `docs/CICD.md`.
