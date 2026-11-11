@@ -63,7 +63,12 @@ Source: `web/src/main/resources/META-INF/resources/assets/app.css`, served at
 | `.banner` | Highlighted info, e.g. "Jo can't see who claimed what until Dec 26" |
 | `.card` | Separate object, such as a wishlist item |
 | `.chip.chip-mine` / `.chip.chip-taken` | Claim states |
-| `.avatar` | Round profile photo with gold ring |
+| `.avatar` / `.avatar-sm` / `.avatar-initial` | Round profile photo with gold ring; small size and letter fallback for lists |
+| `.chip.chip-role` | Group role label (Owner, Admin) |
+| `.danger` | Outlined destructive action (remove, leave, delete). Always confirm |
+| `.join-code` | Large, spaced join code |
+| `.group-list` / `.group-link` | Linked group cards on home |
+| `.member-list` / `.member` | Member rows with optional `.member-actions` details |
 | `.brand` | Wordmark text |
 
 Use at most one `.primary` button per view.

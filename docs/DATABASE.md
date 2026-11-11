@@ -15,7 +15,8 @@ Migrations: `database/supabase/migrations/`. Tests: `database/supabase/tests/` (
 erDiagram
   auth_users ||--|| Profile : "signup trigger"
   Profile ||--o{ GroupUser : ""
-  Group ||--o{ GroupUser : "members (admin|member)"
+  Group ||--o{ GroupUser : "members (owner|admin|member)"
+  Group ||--|| GroupJoinCode : ""
   Group ||--o{ Event : ""
   Event ||--o{ Wishlist : "one per member"
   Profile ||--o{ Wishlist : owns
@@ -29,7 +30,8 @@ erDiagram
 |---|---|
 | `Profile` | 1:1 with `auth.users`. `username` citext, unique, `^[A-Za-z0-9_]{3,32}$`. `onboarded_at` set when onboarding finishes (requires `display_name`). Birthday is `birth_month`/`birth_day` only (no year). `avatar_path` = `<user id>/<file>` in the `avatars` bucket. |
 | `Group` | `is_claims_visible_to_owner` lets owners see claims before the event ends. |
-| `GroupUser` | Membership + `role` (`admin`, `member`). Group creator is auto-added as admin. |
+| `GroupUser` | Membership + `role` (`owner`, `admin`, `member`). Creator is auto-added as owner; at most one owner per group (partial unique index). No direct inserts: rows come from the creator trigger and `join_group_by_code`. |
+| `GroupJoinCode` | One code per group, `^[A-HJ-NP-Z2-9]{8}$` (no I/O/0/1). Readable by owner/admins only. Created by trigger with the group. |
 | `Event` | `end_date` drives claim reveal. Null = never auto-reveal. |
 | `Wishlist` | Unique per (`event_id`, `owner_id`). Owner must be a group member. |
 | `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. |
@@ -46,6 +48,19 @@ erDiagram
 - With `search_path = ''`, compare citext with `operator(extensions.=)`; a bare
   `=` silently falls back to case-sensitive text equality.
 
+## Group Membership
+Functions in `private` (security definer, callable by `authenticated`):
+- `join_group_by_code(code)` → group id. Ignores case, spaces and dashes.
+  Unknown code raises `P0002`. Already a member: no change.
+- `regenerate_join_code(group_id)` → new code. Owner/admin, else `42501`.
+- `transfer_group_ownership(group_id, user_id)`. Owner only (`42501`); target
+  must be another member (`23514`). Caller becomes admin.
+
+Policies: owner/admin rename the group; only the owner deletes it or changes
+roles (`admin` ↔ `member`). Delete on `GroupUser` allows leaving (not the
+owner), owner removing anyone else, admins removing plain members.
+`private.is_group_admin` counts the owner as an admin.
+
 ## Claim Visibility
 - Group members (non-owners) see all claims on a gift.
 - The wishlist owner sees claims only when `Event.end_date < current_date` (UTC)
@@ -59,6 +74,6 @@ Select columns explicitly (`id, gift_id, quantity, created_at`) and use
 `ClaimParticipant` for "who" / "my claims".
 
 ## Known Gaps
-- No invite/join flow yet; admins add members directly to `GroupUser`.
-- Nothing prevents removing or demoting a group's last admin.
+- Join codes have no attempt rate limiting (40-bit codes, signed-in users only).
+- Deleting the owner's account leaves the group without an owner.
 - An admin who is also a wishlist owner can flip the reveal flag.
