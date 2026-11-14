@@ -55,14 +55,16 @@
     </span>
     {#if m.role.isAdmin}<span class="chip chip-role">{m.role.label}</span>{/if}
     {#if g.hasActions(m)}
-    <details class="member-actions">
-      <summary>Manage {m.name}</summary>
+    {! name= keeps one menu open at a time; data-menu closes it on outside click or Escape (app.js). !}
+    <details class="member-actions" name="member-actions" data-menu>
+      <summary>Manage<span class="visually-hidden"> {m.name}</span></summary>
+      <div class="member-menu">
       {#if g.canManageRole(m)}
       <form hx-post="/groups/{g.id}/members/{m.userId}/role" hx-target="#group-body">
         {#csrf /}
         {#if m.role.isAdmin}
         <input type="hidden" name="role" value="member">
-        <button type="submit">Make member</button>
+        <button type="submit">Remove admin</button>
         {#else}
         <input type="hidden" name="role" value="admin">
         <button type="submit">Make admin</button>
@@ -82,6 +84,7 @@
         <button type="submit" class="danger">Remove from group</button>
       </form>
       {/if}
+      </div>
     </details>
     {/if}
   </li>

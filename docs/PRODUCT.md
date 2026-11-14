@@ -28,7 +28,7 @@ Signed-in users land on **Your groups** (`/`), listing their groups with
 | See / replace join code | ✓ | ✓ | |
 | Rename group | ✓ | ✓ | |
 | Remove someone | anyone else | members only | |
-| Make admin / member | ✓ | | |
+| Make / remove admin | ✓ | | |
 | Make someone owner | ✓ (becomes admin) | | |
 | Delete group | ✓ | | |
 | Leave | after handing off ownership | ✓ | ✓ |
