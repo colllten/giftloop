@@ -1,0 +1,35 @@
+{#include base}
+{#title}{event.name} · GiftLoop{/title}
+{#header}{#appheader nav=true current='' /}{/header}
+{#width}page-wide{/width}
+{#main}
+<div class="page-head">
+<p class="hint"><a href="/groups/{event.groupId}">{event.groupName}</a></p>
+<h1>{event.name}</h1>
+{#if event.endDateLabel}<p class="hint">Ends {event.endDateLabel}</p>{/if}
+</div>
+
+<h2>Wishlists</h2>
+{#if event.wishlists.isEmpty}
+<p class="notice">No one has started a wishlist yet.</p>
+{#else}
+<ul class="link-list">
+  {#for w in event.wishlists}
+  <li>
+    <a class="card link-card" href="/wishlists/{w.id}">
+      <span class="link-card-title">{#if w.mine}Your wishlist{#else}{w.ownerName}{/if}</span>
+      <span class="hint">{w.giftCount} {#if w.giftCount == 1}gift{#else}gifts{/if}</span>
+    </a>
+  </li>
+  {/for}
+</ul>
+{/if}
+
+{#if !event.myWishlistId}
+<form hx-post="/events/{event.id}/wishlist">
+  {#csrf /}
+  <button class="primary" type="submit">Start your wishlist</button>
+</form>
+{/if}
+{/main}
+{/include}

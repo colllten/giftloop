@@ -66,7 +66,11 @@
   --radius: 10px;
   --radius-pill: 999px;
   --tap: 2.75rem;                   /* minimum control height (44px) */
-  --content-width: 34rem;
+  --content-width: 34rem;           /* narrow pages: forms, sign-in */
+  --page-width: 72rem;              /* wide pages and the site header */
+  --sidebar-width: 22rem;           /* side column on wide pages, desktop only */
+  /* Desktop breakpoint is 56rem (896px). Media queries can't read custom
+     properties, so it is repeated literally below. */
 }
 
 /* ---------- Tokens: dark (follows the device setting) ---------- */
@@ -100,7 +104,7 @@
 /* ---------- Base ---------- */
 *, *::before, *::after { box-sizing: border-box; }
 body {
-  margin: 0 auto; max-width: var(--content-width); padding: var(--space-4);
+  margin: 0;
   font-family: var(--font-body); font-size: var(--text-base); line-height: 1.5;
   color: var(--color-text); background: var(--color-bg);
 }
@@ -119,12 +123,22 @@ a:hover { color: var(--color-primary-hover); }
 label { display: block; font-weight: 700; margin-bottom: var(--space-1); }
 .hint { display: block; color: var(--color-text-muted); font-size: var(--text-sm); font-weight: 400; }
 .field { margin-bottom: var(--space-5); }
-input[type=email], input[type=password], input[type=text], select {
+input[type=email], input[type=password], input[type=text], input[type=number], input[type=date],
+select, textarea {
   width: 100%; min-height: var(--tap); font: inherit; padding: .6rem .75rem;
   color: var(--color-text); background: var(--color-surface);
   border: 1px solid var(--color-border-strong); border-radius: var(--radius);
 }
+textarea { resize: vertical; }
 input[type=file] { font: inherit; font-size: var(--text-sm); }
+fieldset { border: none; padding: 0; margin-inline: 0; min-width: 0; }
+legend { font-weight: 700; padding: 0; margin-bottom: var(--space-1); }
+/* Radio/checkbox with its label; the whole row is the tap target. */
+.choice {
+  display: flex; align-items: center; gap: var(--space-3);
+  min-height: var(--tap); margin: 0; font-weight: 400; cursor: pointer;
+}
+.choice input { width: 1.25rem; height: 1.25rem; margin: 0; flex: none; accent-color: var(--color-primary); }
 [aria-invalid="true"] { border-color: var(--color-error); border-width: 2px; }
 .row { display: flex; gap: var(--space-3); }
 .row > * { flex: 1; }
@@ -187,9 +201,34 @@ details form { margin-top: var(--space-4); }
   width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
   background: var(--color-surface-sunken); border: 3px solid var(--color-gold);
 }
-.topbar { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
-.topbar form { margin: 0; }
 .brand { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em; color: var(--color-primary); }
+
+/* ---------- Page shell ---------- */
+.site-header {
+  background: var(--color-surface); border-top: 4px solid var(--color-gold);
+  border-bottom: 1px solid var(--color-border);
+}
+.site-header-inner {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  max-width: var(--page-width); margin: 0 auto; padding: var(--space-2) var(--space-4);
+}
+.site-header .brand { font-size: var(--text-lg); text-decoration: none; }
+.site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
+.site-nav a {
+  display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 var(--space-2);
+  font-weight: 700; text-decoration: none;
+}
+/* Current page: underline, not color alone. */
+.site-nav a[aria-current="page"] {
+  text-decoration: underline; text-decoration-color: var(--color-gold);
+  text-decoration-thickness: 3px; text-underline-offset: .4em;
+}
+.site-nav form { margin: 0; }
+.page { max-width: var(--page-width); margin: 0 auto; padding: var(--space-4); }
+.page-narrow { max-width: var(--content-width); }
+.page-head { margin-bottom: var(--space-5); }
+.page-head > h1 { margin-bottom: var(--space-1); }
 
 /* ---------- Groups ---------- */
 .card > h2:first-child { margin-top: 0; }
@@ -201,11 +240,11 @@ details form { margin-top: var(--space-4); }
   letter-spacing: .12em; margin: var(--space-3) 0;
 }
 .join-code-input { text-transform: uppercase; letter-spacing: .08em; }
-.group-list, .member-list { list-style: none; margin: 0 0 var(--space-5); padding: 0; }
-.group-list li + li { margin-top: var(--space-3); }
-.group-link { display: flex; flex-direction: column; gap: var(--space-1); text-decoration: none; color: var(--color-text); }
-.group-link:hover { border-color: var(--color-primary); color: var(--color-text); }
-.group-name { font-family: var(--font-display); font-weight: 800; font-size: var(--text-lg); color: var(--color-primary); }
+.group-list, .link-list, .member-list { list-style: none; margin: 0 0 var(--space-5); padding: 0; }
+.group-list, .link-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: var(--space-3); }
+.group-link, .link-card { height: 100%; display: flex; flex-direction: column; gap: var(--space-1); text-decoration: none; color: var(--color-text); }
+.group-link:hover, .link-card:hover { border-color: var(--color-primary); color: var(--color-text); }
+.group-name, .link-card-title { font-family: var(--font-display); font-weight: 800; font-size: var(--text-lg); color: var(--color-primary); }
 .member {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3);
   padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border);
@@ -218,6 +257,68 @@ details form { margin-top: var(--space-4); }
 .avatar-initial {
   display: inline-flex; align-items: center; justify-content: center;
   font-family: var(--font-display); font-weight: 800; color: var(--color-primary);
+}
+
+/* ---------- Wishlists ---------- */
+.chip-visibility { background: var(--color-surface-sunken); color: var(--color-text); border: 1px solid var(--color-border-strong); }
+.gift-list { list-style: none; margin: 0 0 var(--space-5); padding: 0; display: grid; gap: var(--space-3); }
+.gift { overflow-wrap: anywhere; }
+.gift-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.gift-name { margin: 0; }
+.gift-meta { margin: var(--space-2) 0 0; font-weight: 700; }
+.gift-notes { white-space: pre-line; margin: var(--space-2) 0 0; }
+.gift-links { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+.gift-links li { margin-top: var(--space-1); }
+.gift-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
+.gift-actions form { margin: 0; }
+.gift > .gift-form { margin-top: 0; }
+/* Member checkboxes only matter when "Only people I pick" is chosen. */
+.viewer-picker { margin-left: var(--space-3); padding-left: var(--space-4); border-left: 2px solid var(--color-border); }
+.visibility:not(:has(input[value="selected"]:checked)) .viewer-picker { display: none; }
+
+/* ---------- Desktop (56rem / 896px and up) ---------- */
+@media (min-width: 56rem) {
+  .site-header-inner { padding: var(--space-3) var(--space-6); }
+  .site-header .brand { font-size: var(--text-xl); }
+  .page { padding: var(--space-6); }
+
+  /* Narrow pages become a centered card. */
+  .page-narrow {
+    max-width: calc(var(--content-width) + 2 * var(--space-6));
+    margin-top: var(--space-6); margin-bottom: var(--space-6);
+    background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius);
+  }
+  .page-narrow > :first-child { margin-top: 0; }
+
+  /* Action rows keep natural button widths instead of stretching. */
+  .page-wide .row { justify-content: flex-start; }
+  .page-wide .row > * { flex: none; }
+  .page-wide .gift-form .row > * { flex: 1; }
+
+  /* Group page: members on the left, invite and settings in a side column. */
+  .group-layout {
+    display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-width);
+    grid-template-rows: auto 1fr; grid-template-areas: "events invite" "members settings";
+    column-gap: var(--space-6); align-items: start;
+  }
+  .group-events { grid-area: events; }
+  .group-members { grid-area: members; }
+  /* Plain members have no invite card: settings move up beside events. */
+  .group-layout:not(:has(.group-invite)) .group-settings { grid-row: 1 / span 2; }
+  .group-invite { grid-area: invite; margin-bottom: var(--space-4); }
+  .group-settings { grid-area: settings; }
+  .group-events > h2:first-child, .group-settings > :first-child { margin-top: 0; }
+
+  /* Wishlist page: gifts on the left, add form and settings in a side column (owner). */
+  .wishlist-layout:has(.wishlist-add) {
+    display: grid; grid-template-columns: minmax(0, 1fr) var(--sidebar-width);
+    grid-template-rows: auto 1fr; grid-template-areas: "gifts add" "gifts settings";
+    column-gap: var(--space-6); align-items: start;
+  }
+  .wishlist-gifts { grid-area: gifts; }
+  .wishlist-add { grid-area: add; margin-bottom: var(--space-4); }
+  .wishlist-settings { grid-area: settings; }
+  .wishlist-gifts > h2:first-child { margin-top: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

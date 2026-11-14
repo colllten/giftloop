@@ -65,6 +65,14 @@ insert into public."Gift" (id, wishlist_id, name, price, links, quantity, notes)
   ('40000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000002',
    'Cookbook', 30.00, null, 1, null);
 
+-- Alice's spa day is shared only with Carol; Bob cannot see it.
+insert into public."Gift" (id, wishlist_id, name, price, quantity, notes, is_visible_to_all) values
+  ('40000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000001',
+   'Spa day', 120.00, 1, 'Somewhere quiet', false);
+
+insert into public."GiftViewer" (gift_id, user_id)
+values ('40000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-00000000ca01');
+
 -- Bob claims the headphones (trigger adds Bob as participant); Carol chips in anonymously.
 insert into public."Claim" (id, gift_id, created_by, quantity)
 values ('50000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001',

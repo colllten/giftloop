@@ -1,5 +1,6 @@
 package com.giftloop.group;
 
+import com.giftloop.event.EventService;
 import com.giftloop.security.RequiresOnboarding;
 import com.giftloop.web.Redirects;
 import io.quarkus.qute.CheckedTemplate;
@@ -40,16 +41,19 @@ public class GroupPageResource {
 
     private final JsonWebToken jwt;
     private final GroupService groups;
+    private final EventService events;
 
     /**
      * Creates the resource.
      *
      * @param jwt    caller's verified token
      * @param groups group access
+     * @param events event access (the group page lists events)
      */
-    public GroupPageResource(JsonWebToken jwt, GroupService groups) {
+    public GroupPageResource(JsonWebToken jwt, GroupService groups, EventService events) {
         this.jwt = jwt;
         this.groups = groups;
+        this.events = events;
     }
 
     /**
@@ -203,7 +207,7 @@ public class GroupPageResource {
     @Path("groups/{id}")
     @Operation(hidden = true)
     public TemplateInstance groupPage(@PathParam("id") UUID id) {
-        return Templates.group(GroupBodyView.of(load(id)));
+        return Templates.group(GroupBodyView.of(load(id), events.listForGroup(jwt, id)));
     }
 
     /**
@@ -220,10 +224,10 @@ public class GroupPageResource {
         GroupForm form = GroupForm.of(name);
         Map<String, String> errors = form.validate();
         if (!errors.isEmpty()) {
-            return Templates.groupBody(new GroupBodyView(load(id), name, errors, null));
+            return Templates.groupBody(new GroupBodyView(load(id), events.listForGroup(jwt, id), name, errors, null));
         }
         groups.rename(jwt, id, form);
-        return Templates.groupBody(GroupBodyView.withNotice(load(id), "Group renamed."));
+        return Templates.groupBody(withNotice(id, "Group renamed."));
     }
 
     /**
@@ -237,7 +241,7 @@ public class GroupPageResource {
     @Operation(hidden = true)
     public TemplateInstance regenerateCode(@PathParam("id") UUID id) {
         groups.regenerateJoinCode(jwt, id);
-        return Templates.groupBody(GroupBodyView.withNotice(load(id), "New code created. The old code no longer works."));
+        return Templates.groupBody(withNotice(id, "New code created. The old code no longer works."));
     }
 
     /**
@@ -254,7 +258,7 @@ public class GroupPageResource {
     public TemplateInstance setRole(@PathParam("id") UUID id, @PathParam("userId") UUID userId,
                                     @RestForm String role) {
         groups.setRole(jwt, id, userId, parseRole(role));
-        return Templates.groupBody(GroupBodyView.withNotice(load(id), "Role updated."));
+        return Templates.groupBody(withNotice(id, "Role updated."));
     }
 
     /**
@@ -269,7 +273,7 @@ public class GroupPageResource {
     @Operation(hidden = true)
     public TemplateInstance removeMember(@PathParam("id") UUID id, @PathParam("userId") UUID userId) {
         groups.removeMember(jwt, id, userId);
-        return Templates.groupBody(GroupBodyView.withNotice(load(id), "Member removed."));
+        return Templates.groupBody(withNotice(id, "Member removed."));
     }
 
     /**
@@ -287,7 +291,7 @@ public class GroupPageResource {
             throw new BadRequestException("userId is required");
         }
         groups.transferOwnership(jwt, id, userId);
-        return Templates.groupBody(GroupBodyView.withNotice(load(id), "Ownership transferred. You're now an admin."));
+        return Templates.groupBody(withNotice(id, "Ownership transferred. You're now an admin."));
     }
 
     /**
@@ -318,6 +322,11 @@ public class GroupPageResource {
     public Response delete(@PathParam("id") UUID id, HttpHeaders headers) {
         groups.delete(jwt, id);
         return Redirects.to(headers, "/").build();
+    }
+
+    /** Body view of a group with a confirmation message. */
+    private GroupBodyView withNotice(UUID id, String notice) {
+        return GroupBodyView.withNotice(load(id), events.listForGroup(jwt, id), notice);
     }
 
     private GroupDetail load(UUID id) {

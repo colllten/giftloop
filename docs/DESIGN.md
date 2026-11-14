@@ -49,7 +49,24 @@ Source: `web/src/main/resources/META-INF/resources/assets/app.css`, served at
 ## Shape and spacing
 - `--radius` 10px on cards, inputs and buttons. `--radius-pill` for chips only.
 - Spacing scale `--space-1` to `--space-6` (4px to 32px).
-- Content column is `--content-width` (34rem), single column on all screens.
+
+## Layout
+Mobile first. One breakpoint at 56rem (896px), written literally in
+media queries because they can't read custom properties.
+
+- Every page gets the site header (`{#appheader /}`). Signed-in pages
+  override it: `{#header}{#appheader nav=true current='groups' /}{/header}`
+  (`current`: `groups`, `profile` or `''`).
+- `<main class="page">` width comes from `{#width}` in `base.html`:
+  - `page-narrow` (default): forms and sign-in. `--content-width` (34rem).
+    A centered card on desktop.
+  - `page-wide`: dashboards (home, group). Up to `--page-width` (72rem).
+- Below the breakpoint everything is one column in source order. Order
+  markup for phones first, then place it for desktop with grid.
+- Group page on desktop: events and members on the left, invite and
+  settings in a `--sidebar-width` (22rem) side column (`.group-layout`).
+- Wishlist page on desktop (owner): gifts on the left, add form and settings
+  in the side column (`.wishlist-layout`). Others get one column.
 
 ## Components
 | Class | Purpose |
@@ -58,6 +75,7 @@ Source: `web/src/main/resources/META-INF/resources/assets/app.css`, served at
 | `.primary` | Filled main action. Full width directly inside a form |
 | `.link-button` | Button that looks like a link |
 | `.field`, `.hint`, `.row` | Form layout |
+| `.choice` | Radio or checkbox row with its label; the row is the tap target |
 | `.error`, `.ok` | Inline validation and status |
 | `.notice` | Neutral info box |
 | `.banner` | Highlighted info, e.g. "Jo can't see who claimed what until Dec 26" |
@@ -68,7 +86,15 @@ Source: `web/src/main/resources/META-INF/resources/assets/app.css`, served at
 | `.danger` | Outlined destructive action (remove, leave, delete). Always confirm |
 | `.join-code` | Large, spaced join code |
 | `.group-list` / `.group-link` | Linked group cards on home |
+| `.link-list` / `.link-card` / `.link-card-title` | Linked cards for events and wishlists |
 | `.member-list` / `.member` | Member rows with optional `.member-actions` details |
 | `.brand` | Wordmark text |
+| `.site-header` / `.site-nav` | Site header and signed-in nav. Current link is underlined |
+| `.page-head` | Title block above a wide page's content |
+| `.group-layout` | Group page grid: `.group-events`, `.group-members`, `.group-invite`, `.group-settings` |
+| `.gift-list` / `.gift` | Gift cards: `.gift-head`, `.gift-meta`, `.gift-notes`, `.gift-links`, `.gift-actions` |
+| `.chip.chip-visibility` | Who can see a gift, as text ("Everyone", "Shared with 2 people"). Owner only |
+| `.visibility` / `.viewer-picker` | Gift visibility fieldset; member checkboxes show only when "Only people I pick" is chosen |
+| `.wishlist-layout` | Wishlist page grid: `.wishlist-gifts`, `.wishlist-add`, `.wishlist-settings` |
 
 Use at most one `.primary` button per view.

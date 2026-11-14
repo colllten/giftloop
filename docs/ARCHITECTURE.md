@@ -69,6 +69,40 @@ sequenceDiagram
   end
 ```
 
+## Events and Wishlists
+`com.giftloop.event`: `EventPageResource` (create from the group page, event
+page listing wishlists) and `EventService`. `com.giftloop.wishlist`:
+`WishlistPageResource` (HTML), `WishlistResource` (JSON reads),
+`WishlistService`. Gift forms swap themselves on validation errors; on success
+the server sends `HX-Retarget: #wishlist-body` with the refreshed body.
+
+Saving a gift writes the gift and its viewer allowlist in one transaction, so
+visibility never lags the gift. RLS decides who can see it (see
+`docs/DATABASE.md` → Gift Visibility).
+```mermaid
+sequenceDiagram
+  participant B as Browser (HTMX)
+  participant Q as Quarkus
+  participant P as Postgres
+  B->>Q: POST /wishlists/{id}/gifts (visibility=selected, viewers=[...])
+  Q->>Q: GiftForm.validate (limits, web links (https:// added if missing), ≥1 viewer)
+  alt invalid
+    Q-->>B: form with errors (swaps itself)
+  else valid
+    Q->>P: BEGIN as caller
+    Q->>P: insert/update "Gift" (RLS: wishlist owner)
+    Q->>P: delete "GiftViewer" for gift
+    Q->>P: insert "GiftViewer" rows (trigger: member, not owner)
+    alt viewer not in group (23514)
+      P-->>Q: error → ROLLBACK
+      Q-->>B: 400
+    else ok
+      Q->>P: COMMIT
+      Q-->>B: body + HX-Retarget #wishlist-body
+    end
+  end
+```
+
 # Error Handling
 SQL failures in `RlsContext` are rethrown as `DataAccessException` (500).
 Expected rule outcomes (SQLSTATE class 23, `42501`, `P0002`, `PT429`) are logged at

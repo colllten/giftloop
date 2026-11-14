@@ -1,5 +1,6 @@
 package com.giftloop.group;
 
+import com.giftloop.TestUser;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.response.Response;
 import org.junit.jupiter.api.Test;

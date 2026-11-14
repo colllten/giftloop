@@ -1,0 +1,10 @@
+{#include base}
+{#title}New event · GiftLoop{/title}
+{#header}{#appheader nav=true current='' /}{/header}
+{#main}
+<p class="hint"><a href="/groups/{view.groupId}">{view.groupName}</a></p>
+<h1>New event</h1>
+<p>An event is an occasion you exchange gifts for, like a holiday or birthday. Everyone in {view.groupName} can make a wishlist for it.</p>
+{#include EventPageResource/createForm /}
+{/main}
+{/include}

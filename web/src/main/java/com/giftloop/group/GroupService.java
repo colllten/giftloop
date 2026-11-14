@@ -2,6 +2,7 @@ package com.giftloop.group;
 
 import com.giftloop.security.DataAccessException;
 import com.giftloop.security.RlsContext;
+import com.giftloop.security.Sql;
 import com.giftloop.security.SqlWork;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.BadRequestException;
@@ -20,6 +21,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.giftloop.security.Sql.firstLine;
+import static com.giftloop.security.Sql.prepare;
+import static com.giftloop.security.Sql.sqlState;
+
 /**
  * Groups and membership, as the calling user. RLS and the {@code private.*} group functions
  * decide what is allowed; this class maps their outcomes to exceptions.
@@ -32,9 +37,7 @@ import java.util.UUID;
 public class GroupService {
 
     private static final Logger LOG = Logger.getLogger(GroupService.class);
-    private static final String INSUFFICIENT_PRIVILEGE = "42501";
     private static final String RATE_LIMITED = "PT429";
-    private static final String CHECK_VIOLATION = "23514";
     /** Mirrors {@code c_window} in {@code private.join_group_by_code}. */
     private static final Duration JOIN_FAILURE_WINDOW = Duration.ofMinutes(15);
 
@@ -239,7 +242,7 @@ public class GroupService {
         try {
             call(jwt, "select private.transfer_group_ownership(?, ?)", groupId, newOwner);
         } catch (DataAccessException e) {
-            if (CHECK_VIOLATION.equals(sqlState(e))) {
+            if (Sql.CHECK_VIOLATION.equals(sqlState(e))) {
                 throw new BadRequestException("New owner must be another member of the group");
             }
             throw e;
@@ -298,7 +301,7 @@ public class GroupService {
             }
         });
         if (rows == 0) {
-            LOG.warnf("User %s was not allowed to: %s", jwt.getSubject(), sql.strip().lines().findFirst().orElse(sql));
+            LOG.warnf("User %s was not allowed to: %s", jwt.getSubject(), firstLine(sql));
             throw new ForbiddenException();
         }
     }
@@ -312,29 +315,17 @@ public class GroupService {
         });
     }
 
-    private static PreparedStatement prepare(Connection c, String sql, Object... params) throws SQLException {
-        PreparedStatement s = c.prepareStatement(sql);
-        for (int i = 0; i < params.length; i++) {
-            s.setObject(i + 1, params[i]);
-        }
-        return s;
-    }
-
     /** Runs as the user; insufficient-privilege errors become {@link ForbiddenException}. */
     private <T> T run(JsonWebToken jwt, SqlWork<T> work) {
         try {
             return rls.inUserTransaction(jwt, work);
         } catch (DataAccessException e) {
-            if (INSUFFICIENT_PRIVILEGE.equals(sqlState(e))) {
+            if (Sql.INSUFFICIENT_PRIVILEGE.equals(sqlState(e))) {
                 LOG.warnf("User %s was denied: %s", jwt.getSubject(), e.getCause().getMessage());
                 throw new ForbiddenException();
             }
             throw e;
         }
-    }
-
-    private static String sqlState(DataAccessException e) {
-        return e.getCause() instanceof SQLException sql ? sql.getSQLState() : null;
     }
 
     /**

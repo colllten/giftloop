@@ -1,0 +1,68 @@
+{#let w=view.wishlist}
+<div class="page-head">
+<p class="hint"><a href="/groups/{w.groupId}">{w.groupName}</a> / <a href="/events/{w.eventId}">{w.eventName}</a></p>
+<h1>{w.title}</h1>
+{#if w.callerIsOwner}<p class="hint">You choose who can see each gift.</p>{/if}
+{#if view.notice}<p class="ok" role="status">{view.notice}</p>{/if}
+</div>
+
+<div class="wishlist-layout">
+<section class="wishlist-gifts" aria-labelledby="gifts-heading">
+<h2 id="gifts-heading">Gifts</h2>
+{#if w.gifts.isEmpty}
+<p class="notice">{#if w.callerIsOwner}Your wishlist is empty. Add your first gift.{#else}There's nothing here for you yet.{/if}</p>
+{#else}
+<ul class="gift-list">
+  {#for gift in w.gifts}
+  <li class="card gift">
+    <div class="gift-head">
+      <h3 class="gift-name">{gift.name}</h3>
+      {#if w.callerIsOwner}<span class="chip chip-visibility">{gift.visibilityLabel}</span>{/if}
+    </div>
+    {#if gift.priceLabel || gift.quantity > 1}
+    <p class="gift-meta">{gift.priceLabel ?: ''}{#if gift.priceLabel && gift.quantity > 1} · {/if}{#if gift.quantity > 1}Wants {gift.quantity}{/if}</p>
+    {/if}
+    {#if w.callerIsOwner && !gift.visibleToAll && !gift.viewerIds.isEmpty}
+    <p class="hint">Visible to {w.viewerNames(gift)}</p>
+    {/if}
+    {#if gift.notes}<p class="gift-notes">{gift.notes}</p>{/if}
+    {#if !gift.links.isEmpty}
+    <ul class="gift-links">
+      {#for link in gift.links}
+      <li><a href="{link}" rel="noopener noreferrer" target="_blank">{link}</a></li>
+      {/for}
+    </ul>
+    {/if}
+    {#if w.callerIsOwner}
+    <div class="gift-actions">
+      <button type="button" hx-get="/wishlists/{w.id}/gifts/{gift.id}/edit" hx-target="closest li" hx-swap="innerHTML">Edit</button>
+      <form hx-post="/wishlists/{w.id}/gifts/{gift.id}/delete" hx-target="#wishlist-body"
+            hx-confirm="Remove {gift.name} from your wishlist?">
+        {#csrf /}
+        <button type="submit" class="danger">Remove</button>
+      </form>
+    </div>
+    {/if}
+  </li>
+  {/for}
+</ul>
+{/if}
+</section>
+
+{#if view.addForm}
+<section class="card wishlist-add" aria-labelledby="add-heading">
+<h2 id="add-heading">Add a gift</h2>
+{#giftform form=view.addForm /}
+</section>
+
+<section class="wishlist-settings" aria-labelledby="delete-heading">
+<h2 id="delete-heading">Delete wishlist</h2>
+<form hx-post="/wishlists/{w.id}/delete"
+      hx-confirm="Delete your wishlist for {w.eventName}? All its gifts are deleted too. This can't be undone.">
+  {#csrf /}
+  <button type="submit" class="danger">Delete wishlist</button>
+</form>
+</section>
+{/if}
+</div>
+{/let}

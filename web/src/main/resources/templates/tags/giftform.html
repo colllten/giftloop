@@ -1,0 +1,59 @@
+{! Add/edit gift form. Param: form (GiftFormView). Swaps itself on errors; on
+   success the server re-targets #wishlist-body. !}
+<form class="gift-form" hx-post="{form.action}" hx-target="this" hx-swap="outerHTML">
+  {#csrf /}
+  <div class="field">
+    <label for="{form.key}-name">Gift</label>
+    <input id="{form.key}-name" name="name" type="text" maxlength="200" required value="{form.form.name ?: ''}"
+           {#if form.error('name')}aria-invalid="true" aria-describedby="{form.key}-name-error"{/if}>
+    {#if form.error('name')}<p id="{form.key}-name-error" class="error" role="alert">{form.error('name')}</p>{/if}
+  </div>
+  <div class="row">
+    <div class="field">
+      <label for="{form.key}-price">Price (optional)</label>
+      <input id="{form.key}-price" name="price" type="text" inputmode="decimal" value="{form.form.price ?: ''}"
+             {#if form.error('price')}aria-invalid="true" aria-describedby="{form.key}-price-error"{/if}>
+      {#if form.error('price')}<p id="{form.key}-price-error" class="error" role="alert">{form.error('price')}</p>{/if}
+    </div>
+    <div class="field">
+      <label for="{form.key}-quantity">How many</label>
+      <input id="{form.key}-quantity" name="quantity" type="number" min="1" max="999" value="{form.form.quantity ?: ''}"
+             {#if form.error('quantity')}aria-invalid="true" aria-describedby="{form.key}-quantity-error"{/if}>
+      {#if form.error('quantity')}<p id="{form.key}-quantity-error" class="error" role="alert">{form.error('quantity')}</p>{/if}
+    </div>
+  </div>
+  <div class="field">
+    <label for="{form.key}-links">Links <span class="hint">Optional. One per line, up to 10.</span></label>
+    <textarea id="{form.key}-links" name="links" rows="2"
+              {#if form.error('links')}aria-invalid="true" aria-describedby="{form.key}-links-error"{/if}>{form.form.links ?: ''}</textarea>
+    {#if form.error('links')}<p id="{form.key}-links-error" class="error" role="alert">{form.error('links')}</p>{/if}
+  </div>
+  <div class="field">
+    <label for="{form.key}-notes">Notes <span class="hint">Optional. Size, color, where to buy.</span></label>
+    <textarea id="{form.key}-notes" name="notes" rows="2" maxlength="1000"
+              {#if form.error('notes')}aria-invalid="true" aria-describedby="{form.key}-notes-error"{/if}>{form.form.notes ?: ''}</textarea>
+    {#if form.error('notes')}<p id="{form.key}-notes-error" class="error" role="alert">{form.error('notes')}</p>{/if}
+  </div>
+  <fieldset class="field visibility"{#if form.error('viewers')} aria-describedby="{form.key}-viewers-error"{/if}>
+    <legend>Who can see this gift?</legend>
+    <label class="choice"><input type="radio" name="visibility" value="everyone"{#if form.form.visibleToAll} checked{/if}> Everyone in the group</label>
+    <label class="choice"><input type="radio" name="visibility" value="selected"{#if !form.form.visibleToAll} checked{/if}> Only people I pick</label>
+    <div class="viewer-picker">
+      <p class="hint">They won't see who else it's shared with.</p>
+      {#for m in form.members}
+      <label class="choice"><input type="checkbox" name="viewers" value="{m.userId}"{#if form.form.isViewer(m.userId)} checked{/if}> {m.name}</label>
+      {#else}
+      <p class="hint">No one else is in this group yet.</p>
+      {/for}
+    </div>
+    {#if form.error('viewers')}<p id="{form.key}-viewers-error" class="error" role="alert">{form.error('viewers')}</p>{/if}
+  </fieldset>
+  {#if form.isEdit}
+  <p class="row">
+    <button type="submit">Save gift</button>
+    <a class="button" href="/wishlists/{form.wishlistId}">Cancel</a>
+  </p>
+  {#else}
+  <button class="primary" type="submit">Add gift</button>
+  {/if}
+</form>

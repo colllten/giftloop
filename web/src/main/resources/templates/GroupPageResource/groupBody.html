@@ -1,10 +1,33 @@
 {#let g=view.group}
+<div class="page-head">
 <h1>{g.name}</h1>
 <p class="hint">You're {#if g.callerIsOwner}the owner{#else if g.myRole.isAdmin}an admin{#else}a member{/if} · {g.members.size} {#if g.members.size == 1}member{#else}members{/if}</p>
 {#if view.notice}<p class="ok" role="status">{view.notice}</p>{/if}
+</div>
+
+<div class="group-layout">
+
+<section class="group-events" aria-labelledby="events-heading">
+<h2 id="events-heading">Events</h2>
+{#if view.events.isEmpty}
+<p class="notice">No events yet. Add one, like a holiday or birthday, so everyone can make a wishlist for it.</p>
+{#else}
+<ul class="link-list">
+  {#for e in view.events}
+  <li>
+    <a class="card link-card" href="/events/{e.id}">
+      <span class="link-card-title">{e.name}</span>
+      {#if e.endDateLabel}<span class="hint">Ends {e.endDateLabel}</span>{/if}
+    </a>
+  </li>
+  {/for}
+</ul>
+{/if}
+<p><a class="button" href="/groups/{g.id}/events/new">New event</a></p>
+</section>
 
 {#if g.joinCode}
-<section class="card" aria-labelledby="invite-heading">
+<section class="card group-invite" aria-labelledby="invite-heading">
   <h2 id="invite-heading">Invite people</h2>
   <p>Share this code. They enter it on <a href="/join">Join a group</a> after signing in.</p>
   <p class="join-code" aria-label="Join code {g.formattedJoinCode}">{g.formattedJoinCode}</p>
@@ -16,7 +39,8 @@
 </section>
 {/if}
 
-<h2>Members</h2>
+<section class="group-members" aria-labelledby="members-heading">
+<h2 id="members-heading">Members</h2>
 <ul class="member-list">
 {#for m in g.members}
   <li class="member">
@@ -63,7 +87,9 @@
   </li>
 {/for}
 </ul>
+</section>
 
+<section class="group-settings" aria-label="Group settings">
 {#if g.myRole.isAdmin}
 <details {#if view.error('name')}open{/if}>
   <summary>Rename group</summary>
@@ -94,4 +120,6 @@
   <button type="submit" class="danger">Leave group</button>
 </form>
 {/if}
+</section>
+</div>
 {/let}
