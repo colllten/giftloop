@@ -36,12 +36,30 @@ Signed-in users land on **Your groups** (`/`), listing their groups with
 ## Group Users
 Users within groups can create their wishlists. Others within the group can
 view each users' list for a particular event. Other users can claim purchasing
-an item. The wishlist owner cannot see the status of items on their list,
-unless configured by the admin.
+an item. The wishlist owner can't see claims on their list until the day
+after the event ends, or earlier if a group owner/admin turns that on.
+
+## Claims
+On someone else's wishlist, **Claim this gift** with a quantity. **My claims**
+(`/claims`) lists everything you've claimed, by event.
+
+| Action | Claim creator | Co-buyer | Other members | Wishlist owner |
+|---|---|---|---|---|
+| See claims (who + how many) | ✓ | ✓ | ✓ | after reveal |
+| See anonymous names | ✓ | ✓ | | |
+| Change quantity, add/remove co-buyers, release | ✓ | | | |
+| Hide/show own name, leave | own name | ✓ | | |
+
+- Claiming past what the owner wants is allowed after a confirm step.
+- Reveal: the day after `end_date`, or anytime the group setting
+  "Show claims to owners now" is on. No end date = only the setting.
+- If the owner removes a claimed gift (or the whole wishlist), claimers still
+  see it as **Removed by {owner}** until they release it. The owner sees it
+  disappear either way.
 
 # In-Scope Features
 - Group setup (above)
-- Events, wishlists and claims: to be determined
+- Events, wishlists and claims (above)
 
 # Out-of-Scope Features
 - Mobile application development

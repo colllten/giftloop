@@ -36,11 +36,11 @@ erDiagram
 | `GroupJoinCode` | One code per group, `^[A-HJ-NP-Z2-9]{8}$` (no I/O/0/1). Readable by owner/admins only. Created by trigger with the group. |
 | `JoinCodeFailure` | One row per unknown join code entered (`user_id`, `failed_at`); guesses aren't stored. RLS on, no policies, no grants: only `join_group_by_code` uses it. Rows older than the window are pruned on the user's next attempt. |
 | `Event` | `end_date` drives claim reveal. Null = never auto-reveal. |
-| `Wishlist` | Unique per (`event_id`, `owner_id`). Owner must be a group member. |
-| `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. `is_visible_to_all` (default true); when false, only `GiftViewer` rows can see it. |
+| `Wishlist` | One live wishlist per (`event_id`, `owner_id`) (partial unique index). Owner must be a group member. `removed_at` set = removed shell kept for claimed gifts. |
+| `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. `is_visible_to_all` (default true); when false, only `GiftViewer` rows can see it. `removed_at` set = owner removed it after it was claimed. |
 | `GiftViewer` | (`gift_id`, `user_id`) allowlist for restricted gifts. Owner-only read/write. Viewer must be a group member, not the owner (`23514`). Rows are dropped when the member leaves the group. |
 | `Claim` | `quantity` units of a gift. Total claimed **may exceed** `Gift.quantity`. `created_by` is not readable via the API. |
-| `ClaimParticipant` | Creator auto-added. Any participant can be `is_anonymous`. |
+| `ClaimParticipant` | Creator auto-added and can't leave (release the claim instead). Any participant can be `is_anonymous`. |
 | `GiftClaimSummary` (view) | Per-gift `claim_count` / `claimed_quantity`, RLS applied (security_invoker). |
 
 ## Profiles & Avatars
@@ -80,6 +80,21 @@ Hidden gifts can't be claimed, and their claims stay hidden too
 can't see the gift (`23514`), since that would grant them visibility.
 Only the owner can read a gift's viewer list.
 
+## Gift Removal
+No direct `DELETE` on `Gift` or `Wishlist`. Owners call (security definer, 42501
+unless the caller owns the live row):
+- `private.remove_gift(gift_id)`: unclaimed → deleted; claimed → `removed_at`
+  (viewer rows dropped).
+- `private.remove_wishlist(wishlist_id)`: deletes unclaimed gifts, marks claimed
+  ones removed; the wishlist becomes a removed shell only if any are left.
+
+The owner can't tell removed from deleted: owner helpers (`is_wishlist_owner`,
+`is_gift_owner`, `gift_visible_to`) ignore removed rows, and claiming a missing or
+removed gift raises the same `23514` message. A re-created wishlist gets a new id.
+Removed gifts stay visible to claim participants only and can't get new claims or
+co-buyers. Releasing the last claim purges the gift, then an empty removed wishlist
+(`purge_released_removed_gift` trigger).
+
 ## Claim Visibility
 - Group members (non-owners) who can see a gift see all claims on it.
 - The wishlist owner sees claims only when `Event.end_date < current_date` (UTC)
@@ -95,3 +110,4 @@ Select columns explicitly (`id, gift_id, quantity, created_at`) and use
 ## Known Gaps
 - Deleting the owner's account leaves the group without an owner.
 - An admin who is also a wishlist owner can flip the reveal flag.
+- Deleting an event or group still cascades its claims (everyone sees it go).
