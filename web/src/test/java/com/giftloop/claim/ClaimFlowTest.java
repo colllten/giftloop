@@ -239,6 +239,45 @@ class ClaimFlowTest {
         owner.browser().get(path(upcoming)).then().body(not(containsString("Claim Buyer claimed")));
     }
 
+    /** Members filter by claim state; the owner can't use filters before the reveal. */
+    @Test
+    void filterByClaimState() {
+        UUID w = ownerWishlist("Claim Filters", FUTURE_END);
+        UUID full = addGift(w, "Filter Full", 1);
+        UUID partial = addGift(w, "Filter Partial", 3);
+        addGift(w, "Filter Open", 1);
+        claim(claimer, w, full, 1, false);
+        claim(claimer, w, partial, 1, false);
+
+        bystander.browser().get(path(w)).then().statusCode(200)
+                .body(containsString("Filter gifts by claim"))
+                .body(containsString("Still needed"));
+        bystander.browser().get(path(w) + "?show=needed").then().statusCode(200)
+                .body(containsString("Filter Partial"))
+                .body(containsString("Filter Open"))
+                .body(not(containsString("Filter Full")));
+        bystander.browser().get(path(w) + "?show=claimed").then()
+                .body(containsString("Filter Full"))
+                .body(not(containsString("Filter Partial")))
+                .body(not(containsString("Filter Open")));
+        bystander.browser().get(path(w) + "?show=mine").then()
+                .body(containsString("claimed anything on this list"))
+                .body(not(containsString("Filter Full")));
+        claimer.browser().get(path(w) + "/body?show=mine").then().statusCode(200)
+                .body(not(containsString("<html")))
+                .body(containsString("Filter Full"))
+                .body(containsString("Filter Partial"))
+                .body(not(containsString("Filter Open")));
+
+        // A filter would hint at claims, so the owner gets every gift and no filter bar.
+        owner.browser().get(path(w) + "?show=claimed").then().statusCode(200)
+                .body(not(containsString("Filter gifts by claim")))
+                .body(containsString("Filter Partial"))
+                .body(containsString("Filter Open"));
+        owner.browser().get(path(w) + "/body?show=needed").then().statusCode(200)
+                .body(containsString("Filter Full"));
+    }
+
     /** Removing claimed gifts or wishlists keeps them for claimers only, and the owner can't tell. */
     @Test
     void removedGiftsStayWithClaimers() {

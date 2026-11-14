@@ -7,11 +7,13 @@ import io.quarkus.qute.TemplateInstance;
 import io.quarkus.security.Authenticated;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -40,6 +42,8 @@ public class WishlistPageResource {
     static final String HX_RETARGET = "HX-Retarget";
     /** HTMX response header that changes the swap style. */
     static final String HX_RESWAP = "HX-Reswap";
+    /** HTMX request header with the browser's current URL (carries {@code ?show=}). */
+    static final String HX_CURRENT_URL = "HX-Current-URL";
     private static final String BODY_TARGET = "#wishlist-body";
 
     private final JsonWebToken jwt;
@@ -104,15 +108,31 @@ public class WishlistPageResource {
     /**
      * Wishlist page.
      *
-     * @param id wishlist id
+     * @param id   wishlist id
+     * @param show claim filter ({@code needed}, {@code claimed}, {@code mine}); ignored while claims are hidden
      * @return page
      * @throws NotFoundException if missing or the caller is not a member of its group
      */
     @GET
     @Path("wishlists/{id}")
     @Operation(hidden = true)
-    public TemplateInstance wishlistPage(@PathParam("id") UUID id) {
-        return Templates.wishlist(WishlistBodyView.of(load(id), null));
+    public TemplateInstance wishlistPage(@PathParam("id") UUID id, @QueryParam("show") String show) {
+        return Templates.wishlist(WishlistBodyView.of(load(id), null, GiftFilter.of(show)));
+    }
+
+    /**
+     * Wishlist body fragment, for the claim filter links (which push {@code ?show=} to the URL).
+     *
+     * @param id   wishlist id
+     * @param show claim filter; ignored while claims are hidden
+     * @return fragment
+     * @throws NotFoundException if missing or the caller is not a member of its group
+     */
+    @GET
+    @Path("wishlists/{id}/body")
+    @Operation(hidden = true)
+    public TemplateInstance wishlistBody(@PathParam("id") UUID id, @QueryParam("show") String show) {
+        return Templates.wishlistBody(WishlistBodyView.of(load(id), null, GiftFilter.of(show)));
     }
 
     /**
@@ -126,6 +146,7 @@ public class WishlistPageResource {
      * @param notes      optional notes
      * @param visibility {@code everyone} or {@code selected}
      * @param viewers    selected member ids
+     * @param currentUrl page URL (HTMX), to keep its claim filter
      * @return refreshed body, or the form with errors
      */
     @POST
@@ -133,14 +154,15 @@ public class WishlistPageResource {
     @Operation(hidden = true)
     public Response addGift(@PathParam("id") UUID id, @RestForm String name, @RestForm String price,
                             @RestForm String quantity, @RestForm String links, @RestForm String notes,
-                            @RestForm String visibility, @RestForm List<String> viewers) {
+                            @RestForm String visibility, @RestForm List<String> viewers,
+                            @HeaderParam(HX_CURRENT_URL) String currentUrl) {
         GiftForm form = GiftForm.of(name, price, quantity, links, notes, visibility, viewers);
         Map<String, String> errors = form.validate();
         if (!errors.isEmpty()) {
             return Response.ok(Templates.giftForm(new GiftFormView(id, null, form, errors, load(id).members()))).build();
         }
         wishlists.addGift(jwt, id, form);
-        return body(id, "Gift added.");
+        return body(id, "Gift added.", currentUrl);
     }
 
     /**
@@ -176,6 +198,7 @@ public class WishlistPageResource {
      * @param notes      optional notes
      * @param visibility {@code everyone} or {@code selected}
      * @param viewers    selected member ids
+     * @param currentUrl page URL (HTMX), to keep its claim filter
      * @return refreshed body, or the form with errors
      */
     @POST
@@ -184,7 +207,7 @@ public class WishlistPageResource {
     public Response updateGift(@PathParam("id") UUID id, @PathParam("giftId") UUID giftId,
                                @RestForm String name, @RestForm String price, @RestForm String quantity,
                                @RestForm String links, @RestForm String notes, @RestForm String visibility,
-                               @RestForm List<String> viewers) {
+                               @RestForm List<String> viewers, @HeaderParam(HX_CURRENT_URL) String currentUrl) {
         GiftForm form = GiftForm.of(name, price, quantity, links, notes, visibility, viewers);
         Map<String, String> errors = form.validate();
         if (!errors.isEmpty()) {
@@ -192,7 +215,7 @@ public class WishlistPageResource {
                     .build();
         }
         wishlists.updateGift(jwt, id, giftId, form);
-        return body(id, "Gift saved.");
+        return body(id, "Gift saved.", currentUrl);
     }
 
     /**
@@ -200,14 +223,16 @@ public class WishlistPageResource {
      *
      * @param id     wishlist id
      * @param giftId gift id
+     * @param currentUrl page URL (HTMX), to keep its claim filter
      * @return refreshed body
      */
     @POST
     @Path("wishlists/{id}/gifts/{giftId}/delete")
     @Operation(hidden = true)
-    public TemplateInstance deleteGift(@PathParam("id") UUID id, @PathParam("giftId") UUID giftId) {
+    public TemplateInstance deleteGift(@PathParam("id") UUID id, @PathParam("giftId") UUID giftId,
+                                       @HeaderParam(HX_CURRENT_URL) String currentUrl) {
         wishlists.deleteGift(jwt, id, giftId);
-        return Templates.wishlistBody(WishlistBodyView.of(load(id), "Gift removed."));
+        return Templates.wishlistBody(WishlistBodyView.of(load(id), "Gift removed.", GiftFilter.fromUrl(currentUrl)));
     }
 
     /**
@@ -226,9 +251,9 @@ public class WishlistPageResource {
         return Redirects.to(headers, "/events/" + eventId).build();
     }
 
-    /** Refreshed body swapped into {@code #wishlist-body}, whatever element the request targeted. */
-    private Response body(UUID id, String notice) {
-        return Response.ok(Templates.wishlistBody(WishlistBodyView.of(load(id), notice)))
+    /** Refreshed body swapped into {@code #wishlist-body}, keeping the page's claim filter. */
+    private Response body(UUID id, String notice, String currentUrl) {
+        return Response.ok(Templates.wishlistBody(WishlistBodyView.of(load(id), notice, GiftFilter.fromUrl(currentUrl))))
                 .header(HX_RETARGET, BODY_TARGET)
                 .header(HX_RESWAP, "innerHTML")
                 .build();

@@ -112,6 +112,11 @@ outerHTML); on My claims they post `view=claims` and swap `#claims-body`.
 `claim` depends on `wishlist` to re-render cards, and `wishlist` uses `claim`
 records: a deliberate two-way package dependency.
 
+Wishlist claim filters (`GiftFilter`) run in Java on the loaded gifts. Filter
+links `hx-get /wishlists/{id}/body?show=…` and push `?show=` to the URL; gift
+edits keep it via `HX-Current-URL`. While claims are hidden from the caller, any
+`show` value is treated as "all", so filtering can't hint at claims.
+
 `WishlistService.find` loads claims for members, and for the owner only once
 revealed (`end_date < current_date` or `Group.is_claims_visible_to_owner`). Before
 that the owner's gifts carry no claim data (`Gift.claims == null`), so "hidden"

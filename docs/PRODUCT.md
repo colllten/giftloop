@@ -51,6 +51,9 @@ On someone else's wishlist, **Claim this gift** with a quantity. **My claims**
 | Hide/show own name, leave | own name | ✓ | | |
 
 - Claiming past what the owner wants is allowed after a confirm step.
+- Filter a wishlist by **All**, **Still needed** (unclaimed or partly claimed),
+  **Fully claimed** or **Claimed by me** (`?show=needed|claimed|mine`). Owners
+  get the filters (minus "mine") only after the reveal.
 - Reveal: the day after `end_date`, or anytime the group setting
   "Show claims to owners now" is on. No end date = only the setting.
 - If the owner removes a claimed gift (or the whole wishlist), claimers still

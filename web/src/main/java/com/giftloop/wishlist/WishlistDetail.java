@@ -34,6 +34,15 @@ public record WishlistDetail(UUID id, UUID eventId, String eventName, UUID group
     private static final DateTimeFormatter REVEAL_FORMAT = DateTimeFormatter.ofPattern("MMMM d", Locale.US);
 
     /**
+     * Whether the caller may see claims on this wishlist (always for members; owners after reveal).
+     *
+     * @return true unless the caller is the owner and claims are still hidden
+     */
+    public boolean claimsVisibleToCaller() {
+        return !callerIsOwner || claimsRevealed;
+    }
+
+    /**
      * Banner text for the owner while claims are hidden.
      *
      * @return when claims become visible, or null when the caller isn't a waiting owner

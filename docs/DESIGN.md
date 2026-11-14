@@ -81,6 +81,7 @@ media queries because they can't read custom properties.
 | `.banner` | Highlighted info, e.g. "Jo can't see who claimed what until Dec 26" |
 | `.card` | Separate object, such as a wishlist item |
 | `.chip.chip-mine` / `.chip.chip-taken` | Claim states ("You claimed", "Claimed", "1 of 3 claimed", "Removed by …") in `.gift-chips` |
+| `.gift-filter` / `.gift-filter-count` | Pill links filtering gifts by claim state; current one filled, marked `aria-current` |
 | `.gift-removed` / `.gift-removed-note` | Dashed, sunken card for a gift the owner removed after it was claimed |
 | `.claim-list` / `.my-claim` / `.claim-manage` / `.claim-start` | Other people's claims, your claim, and the inline (not dropdown) panels to claim or manage it |
 | `.avatar` / `.avatar-sm` / `.avatar-initial` | Round profile photo with gold ring; small size and letter fallback for lists |

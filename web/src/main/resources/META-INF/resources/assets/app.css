@@ -307,6 +307,17 @@ details form { margin-top: var(--space-4); }
 .visibility:not(:has(input[value="selected"]:checked)) .viewer-picker { display: none; }
 
 /* ---------- Claims ---------- */
+/* Claim filter: pill links; the current one is filled and marked with aria-current. */
+.gift-filter { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-4); }
+.gift-filter a {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: var(--tap); padding: 0 var(--space-4); border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-strong); color: var(--color-text);
+  font-size: var(--text-sm); font-weight: 700; text-decoration: none;
+}
+.gift-filter a:hover { background: var(--color-surface-sunken); }
+.gift-filter a[aria-current] { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
+.gift-filter-count { font-weight: 400; }
 .gift-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 /* Removed gifts stay readable but step back; the chip and note carry the meaning. */
 .gift-removed { background: var(--color-surface-sunken); border-style: dashed; border-color: var(--color-border-strong); }

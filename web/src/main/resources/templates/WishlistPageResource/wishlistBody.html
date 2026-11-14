@@ -10,11 +10,22 @@
 <div class="wishlist-layout">
 <section class="wishlist-gifts" aria-labelledby="gifts-heading">
 <h2 id="gifts-heading">Gifts</h2>
+{#if view.showFilters}
+{! Links work without JS; HTMX swaps the body and keeps ?show= in the URL. !}
+<nav class="gift-filter" aria-label="Filter gifts by claim">
+  {#for f in view.filters}
+  <a href="{view.pageUrl(f)}" hx-get="{view.bodyUrl(f)}" hx-target="#wishlist-body" hx-push-url="{view.pageUrl(f)}"
+     {#if view.isCurrent(f)}aria-current="page"{/if}>{f.label} <span class="gift-filter-count">{view.count(f)}</span></a>
+  {/for}
+</nav>
+{/if}
 {#if w.gifts.isEmpty}
 <p class="notice">{#if w.callerIsOwner}Your wishlist is empty. Add your first gift.{#else}There's nothing here for you yet.{/if}</p>
+{#else if view.shownGifts.isEmpty}
+<p class="notice">{view.emptyFilterMessage}</p>
 {#else}
 <ul class="gift-list">
-  {#for gift in w.gifts}
+  {#for gift in view.shownGifts}
   {#giftcard w=w gift=gift /}
   {/for}
 </ul>
