@@ -17,8 +17,8 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /**
- * Claims through the real pages: claiming, anonymity, co-buyers, the owner reveal, and gifts the
- * owner removes after they were claimed.
+ * Claims through the real pages: claiming, marking units bought, anonymity, co-buyers, the owner
+ * reveal, and gifts the owner removes after they were claimed.
  * Cast: owner (group owner and wishlist owner), claimer, co-buyer, bystander (member not on the
  * claim), outsider (no group). Users and the group are shared to limit sign-ups; each test makes
  * its own event.
@@ -157,6 +157,63 @@ class ClaimFlowTest {
                 .statusCode(200).body(containsString("Claim released.")).body(containsString("Claim this gift"));
         claimer.browser().request().get("/api/claims").then()
                 .body("giftId", not(hasItem(lamp.toString())));
+    }
+
+    /** Anyone on a claim marks units bought, up to the claimed quantity; the owner sees nothing. */
+    @Test
+    void markPurchased() {
+        UUID w = ownerWishlist("Claim Purchases", FUTURE_END);
+        UUID candles = addGift(w, "Candles", 3);
+        UUID claimId = claim(claimer, w, candles, 2, false);
+        String claim = claimPath(w, candles, claimId);
+        claimer.browser().htmxPost(claim + "/participants", Map.of("userId", cobuyer.id().toString(), "view", ""))
+                .then().statusCode(200).body(containsString("Co-buyer added."))
+                .body(containsString("How many have you bought?"));
+
+        claimer.browser().htmxPost(claim + "/purchased", Map.of("purchased", "1", "view", "")).then()
+                .statusCode(200).body(containsString("Marked 1 as bought."))
+                .body(containsString("You claimed 2</strong> with Claim Cobuyer · 1 bought"));
+        cobuyer.browser().get(path(w)).then().statusCode(200);
+        cobuyer.browser().htmxPost(claim + "/purchased", Map.of("purchased", "2", "view", "")).then()
+                .statusCode(200).body(containsString("Marked 2 as bought."))
+                .body(containsString("· all bought"))
+                .body(containsString(">You bought<"));
+
+        // Range: 0..claimed, and the claim can't drop below what's bought.
+        claimer.browser().htmxPost(claim + "/purchased", Map.of("purchased", "3", "view", "")).then()
+                .statusCode(200).body(containsString("mark more than you claimed"));
+        claimer.browser().htmxPost(claim + "/purchased", Map.of("purchased", "-1", "view", "")).then()
+                .statusCode(200).body(containsString("Please enter a number from 0 to 999."));
+        claimer.browser().htmxPost(claim, Map.of("quantity", "1", "view", "")).then()
+                .statusCode(200).body(containsString("Lower that first."))
+                .body(containsString("You claimed 2"));
+        claimer.browser().get(path(w)).then().body(containsString("You marked 2 as bought."));
+
+        // Other members see progress but can't change it; the owner sees nothing before reveal.
+        bystander.browser().get(path(w)).then().statusCode(200)
+                .body(containsString("Claim Buyer, Claim Cobuyer claimed 2 · all bought"));
+        bystander.browser().htmxPost(claim + "/purchased", Map.of("purchased", "0", "view", ""))
+                .then().statusCode(403);
+        bystander.browser().request().get("/api/wishlists/" + w).then()
+                .body("gifts.find { it.name == 'Candles' }.purchasedQuantity", is(2));
+        owner.browser().get(path(w)).then().statusCode(200).body(not(containsString("all bought")));
+        owner.browser().request().get("/api/wishlists/" + w).then()
+                .body("gifts.find { it.name == 'Candles' }.purchasedQuantity", nullValue());
+        owner.browser().htmxPost(claim + "/purchased", Map.of("purchased", "0", "view", "")).then().statusCode(403);
+
+        claimer.browser().request().get("/api/claims").then()
+                .body("find { it.id == '" + claimId + "' }.purchased", is(2));
+        claimer.browser().get("/claims").then().statusCode(200)
+                .body(containsString("<span class=\"chip chip-mine\">Bought</span>"));
+
+        // A single unit toggles, from My claims too.
+        UUID vase = addGift(w, "Vase", 1);
+        UUID vaseClaim = claim(claimer, w, vase, 1, false);
+        claimer.browser().get(path(w)).then().body(containsString("Mark as bought"));
+        claimer.browser().htmxPost(claimPath(w, vase, vaseClaim) + "/purchased",
+                        Map.of("purchased", "1", "view", "claims")).then()
+                .statusCode(200).body(containsString("Marked 1 as bought."))
+                .body(containsString("Mark as not bought"));
     }
 
     /** Anonymous claimers are hidden from everyone not on the claim; co-buyers join and leave. */

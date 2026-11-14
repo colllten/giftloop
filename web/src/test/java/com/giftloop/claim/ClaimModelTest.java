@@ -16,7 +16,11 @@ class ClaimModelTest {
     private static final UUID ME = UUID.randomUUID();
 
     private static GiftClaim claim(int quantity, Participant... participants) {
-        return new GiftClaim(UUID.randomUUID(), quantity, List.of(participants), false);
+        return bought(quantity, 0, participants);
+    }
+
+    private static GiftClaim bought(int quantity, int purchased, Participant... participants) {
+        return new GiftClaim(UUID.randomUUID(), quantity, purchased, List.of(participants), false);
     }
 
     private static Participant me(boolean anonymous) {
@@ -38,6 +42,34 @@ class ClaimModelTest {
         assertTrue(ClaimForm.of("1", "on").anonymous());
         assertTrue(ClaimForm.of("1", "true").anonymous());
         assertFalse(ClaimForm.of("1", null).anonymous());
+    }
+
+    /** Bought count is a whole number from 0 to 999; the database caps it at the claim. */
+    @Test
+    void purchasedFormValidation() {
+        assertTrue(PurchasedForm.of("0").validate().isEmpty());
+        assertEquals(3, PurchasedForm.of(" 3 ").value());
+        for (String bad : new String[] {null, "", "-1", "1000", "one", "1.5"}) {
+            assertTrue(PurchasedForm.of(bad).validate().containsKey("purchased"), "rejects " + bad);
+        }
+    }
+
+    /** Purchase progress reads as text: nothing, some, all, or a single unit bought. */
+    @Test
+    void purchasedLabels() {
+        assertNull(claim(2).purchasedLabel());
+        assertFalse(claim(2).isFullyPurchased());
+        assertEquals("1 bought", bought(3, 1).purchasedLabel());
+        assertEquals("all bought", bought(2, 2).purchasedLabel());
+        assertEquals("bought", bought(1, 1).purchasedLabel());
+        assertTrue(bought(1, 1).isFullyPurchased());
+
+        GiftClaims claims = new GiftClaims(List.of(bought(2, 1, me(false)), bought(3, 2, other("Bob", false))));
+        assertEquals(3, claims.purchasedQuantity());
+        assertEquals("You claimed", claims.statusLabel(5), "partly bought is still just claimed");
+        assertEquals("You bought", new GiftClaims(List.of(bought(2, 2, me(false)))).statusLabel(5));
+        assertEquals("Claimed", new GiftClaims(List.of(bought(1, 1, other("Bob", false)))).statusLabel(1),
+                "others' purchases don't change the chip");
     }
 
     /** Status text never relies on colour: mine, full, partial, or nothing. */

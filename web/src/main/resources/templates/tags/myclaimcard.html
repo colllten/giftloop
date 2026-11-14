@@ -2,7 +2,10 @@
 <li class="card gift{#if c.giftRemoved} gift-removed{/if}">
   <div class="gift-head">
     <h3 class="gift-name">{c.giftName}</h3>
-    {#if c.giftRemoved}<span class="gift-chips"><span class="chip chip-taken">Removed by {c.ownerName}</span></span>{/if}
+    <span class="gift-chips">
+      {#if c.giftRemoved}<span class="chip chip-taken">Removed by {c.ownerName}</span>{/if}
+      {#if c.claim.isFullyPurchased}<span class="chip chip-mine">Bought</span>{#else if c.claim.purchased > 0}<span class="chip chip-taken">{c.claim.purchased} of {c.claim.quantity} bought</span>{/if}
+    </span>
   </div>
   <p class="hint">For {c.ownerName}{#if c.wishlistOpen} · <a href="/wishlists/{c.wishlistId}#gift-{c.giftId}">View on wishlist</a>{/if}</p>
   {#if c.priceLabel || c.wanted > 1}

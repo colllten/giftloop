@@ -24,6 +24,15 @@ public record GiftClaims(List<GiftClaim> claims) {
     }
 
     /**
+     * Units marked bought across all claims.
+     *
+     * @return total purchased quantity
+     */
+    public int purchasedQuantity() {
+        return claims.stream().mapToInt(GiftClaim::purchased).sum();
+    }
+
+    /**
      * The caller's claim, if they are on one.
      *
      * @return the first claim the caller participates in
@@ -92,11 +101,11 @@ public record GiftClaims(List<GiftClaim> claims) {
      * Status text for the gift card chip. Never colour alone (DESIGN.md).
      *
      * @param wanted gift quantity
-     * @return "You claimed", "Claimed", "N of M claimed", or null when nothing is claimed
+     * @return "You bought", "You claimed", "Claimed", "N of M claimed", or null when nothing is claimed
      */
     public String statusLabel(int wanted) {
         if (hasMine()) {
-            return "You claimed";
+            return myClaim().isFullyPurchased() ? "You bought" : "You claimed";
         }
         if (claims.isEmpty()) {
             return null;
