@@ -27,16 +27,6 @@ import java.util.Map;
 public interface SupabaseAuthApi {
 
     /**
-     * Creates a password account. Returns a session when email confirmation is off.
-     *
-     * @param body {@code email}, {@code password}
-     * @return new session
-     */
-    @POST
-    @Path("/signup")
-    AuthSession signUp(Map<String, Object> body);
-
-    /**
      * Exchanges credentials or a refresh token for a session.
      *
      * @param grantType {@code password} or {@code refresh_token}
@@ -59,7 +49,7 @@ public interface SupabaseAuthApi {
     Uni<AuthSession> tokenAsync(@QueryParam("grant_type") String grantType, Map<String, Object> body);
 
     /**
-     * Emails a one-time sign-in code.
+     * Emails a one-time code. With {@code create_user=true} it also creates new accounts.
      *
      * @param body {@code email}, {@code create_user}
      */

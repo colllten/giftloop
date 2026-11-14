@@ -91,15 +91,28 @@ public final class BrowserSession {
     }
 
     /**
-     * Creates a password account through the real pages (signs in as it).
+     * Creates a password account through the real pages (signs in as it), reading the
+     * emailed code from Mailpit.
      *
      * @param email    email
      * @param password password (at least 8 characters)
-     * @return the sign-up response
+     * @return the final sign-up response
      */
     public Response signUp(String email, String password) {
+        requestSignUpCode(email);
+        return htmxPost("/signup/verify",
+                Map.of("email", email, "code", Mailpit.latestCode(email), "password", password, "next", "/"));
+    }
+
+    /**
+     * First sign-up step: asks for a code to be emailed.
+     *
+     * @param email email
+     * @return the code step response
+     */
+    public Response requestSignUpCode(String email) {
         get("/signup");
-        return htmxPost("/signup", Map.of("email", email, "password", password, "next", "/"));
+        return htmxPost("/signup", Map.of("email", email, "next", "/"));
     }
 
     /**

@@ -26,7 +26,8 @@ public final class Mailpit {
     }
 
     /**
-     * Latest 6-digit code sent to an address, polling briefly for delivery.
+     * Latest 6-digit code sent to an address, polling briefly for delivery. The message
+     * is deleted once read, so the next call waits for a newer email.
      *
      * @param email recipient
      * @return the code
@@ -38,9 +39,11 @@ public final class Mailpit {
                 JsonNode messages = get("/search?limit=1&query=" + URLEncoder.encode("to:" + email, StandardCharsets.UTF_8))
                         .get("messages");
                 if (messages != null && !messages.isEmpty()) {
-                    String text = get("/message/" + messages.get(0).get("ID").asText()).get("Text").asText();
+                    String id = messages.get(0).get("ID").asText();
+                    String text = get("/message/" + id).get("Text").asText();
                     Matcher m = CODE.matcher(text);
                     if (m.find()) {
+                        delete(id);
                         return m.group(1);
                     }
                 }
@@ -53,6 +56,13 @@ public final class Mailpit {
             }
         }
         throw new IllegalStateException("No sign-in code received for " + email);
+    }
+
+    private static void delete(String id) throws Exception {
+        HTTP.send(HttpRequest.newBuilder(URI.create(BASE + "/messages"))
+                        .method("DELETE", HttpRequest.BodyPublishers.ofString("{\"IDs\":[\"" + id + "\"]}"))
+                        .header("Content-Type", "application/json").build(),
+                HttpResponse.BodyHandlers.discarding());
     }
 
     private static JsonNode get(String path) throws Exception {

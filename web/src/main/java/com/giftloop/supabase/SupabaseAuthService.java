@@ -8,7 +8,7 @@ import org.jboss.logging.Logger;
 import java.util.Map;
 
 /**
- * Sign-up, sign-in (password or emailed code), password reset, refresh and sign-out
+ * Sign-up (emailed code), sign-in (password or emailed code), password reset, refresh and sign-out
  * against Supabase Auth.
  * Failures surface as {@link SupabaseException}; {@link #userMessage} gives friendly text.
  */
@@ -32,20 +32,16 @@ public class SupabaseAuthService {
     }
 
     /**
-     * Creates a password account and signs in.
+     * Emails a 6-digit sign-up code, creating an unconfirmed, passwordless account if
+     * the email is new. Existing accounts get a sign-in code instead. Supabase responds
+     * identically either way, so callers can't tell whether an account exists.
+     * Verify with {@link #verifySignInCode}, then set the password with {@link #updatePassword}.
      *
-     * @param email    email address
-     * @param password password (Supabase enforces minimum length)
-     * @return session
-     * @throws SupabaseException on failure, or if no session was returned
+     * @param email email address
      */
-    public AuthSession signUpWithPassword(String email, String password) {
-        AuthSession session = api.signUp(Map.of("email", email, "password", password));
-        if (session == null || !session.isComplete()) {
-            throw new SupabaseException(400, "no_session", "Sign-up did not return a session");
-        }
-        LOG.info("Password account created");
-        return session;
+    public void sendSignUpCode(String email) {
+        api.sendOtp(Map.of("email", email, "create_user", true));
+        LOG.debug("Sign-up code sent");
     }
 
     /**
@@ -110,7 +106,7 @@ public class SupabaseAuthService {
     }
 
     /**
-     * Verifies an emailed code.
+     * Verifies an emailed sign-in or sign-up code (both use {@code type=email}).
      *
      * @param email email address the code was sent to
      * @param code  6-digit code
@@ -145,7 +141,8 @@ public class SupabaseAuthService {
     }
 
     /**
-     * Plain-language message for a sign-in/sign-up failure.
+     * Plain-language message for a sign-in/sign-up failure. Never reveals whether an
+     * account exists.
      *
      * @param e failure from Supabase
      * @return message safe to show users
@@ -155,7 +152,6 @@ public class SupabaseAuthService {
         return switch (code) {
             case "invalid_credentials" -> "That email and password don't match. Try again, or reset your password.";
             case "otp_expired" -> "That code is wrong or has expired. Check the email or send a new code.";
-            case "user_already_exists", "email_exists" -> "There's already an account with this email. Sign in instead.";
             case "same_password" -> "Your new password must be different from your old one.";
             case "weak_password" -> "Please choose a password with at least 8 characters.";
             case "email_address_invalid", "validation_failed" -> "Please check the email address.";

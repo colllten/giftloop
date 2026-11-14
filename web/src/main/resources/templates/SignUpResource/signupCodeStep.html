@@ -1,0 +1,27 @@
+{! Identical for new and existing emails: never hint whether an account exists. !}
+<p class="notice">We sent a 6-digit code to <strong>{email}</strong>. It may take a minute to arrive.</p>
+<form hx-post="/signup/verify" hx-target="#auth-step">
+  {#csrf /}
+  <input type="hidden" name="email" value="{email}">
+  <input type="hidden" name="next" value="{next}">
+  <div class="field">
+    <label for="code">Code from the email</label>
+    <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*"
+           maxlength="7" required autofocus {#if codeError}aria-invalid="true" aria-describedby="code-error"{/if}>
+    {#if codeError}<p id="code-error" class="error" role="alert">{codeError}</p>{/if}
+  </div>
+  <div class="field">
+    <label for="password">Password <span class="hint">At least 8 characters.</span></label>
+    <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required
+           {#if passwordError}aria-invalid="true" aria-describedby="password-error"{/if}>
+    {#if passwordError}<p id="password-error" class="error" role="alert">{passwordError}</p>{/if}
+  </div>
+  <button class="primary" type="submit">Create account</button>
+</form>
+<form hx-post="/signup" hx-target="#auth-step" style="margin-top:1rem">
+  {#csrf /}
+  <input type="hidden" name="email" value="{email}">
+  <input type="hidden" name="next" value="{next}">
+  <button class="link-button" type="submit">Send a new code</button>
+  · <a href="/signup{#if next != '/'}?next={next.urlEncode}{/if}">Use a different email</a>
+</form>
