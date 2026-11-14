@@ -186,9 +186,13 @@ sequenceDiagram
   alt Sign in (default)
     B->>Q: POST /signin/password
     Q->>A: /token?grant_type=password
-  else Sign up
+  else Sign up (same response whether or not the email exists)
     B->>Q: POST /signup
-    Q->>A: /signup
+    Q->>A: /otp (create_user=true)
+    A->>M: 6-digit code
+    B->>Q: POST /signup/verify (code + password)
+    Q->>A: /verify (type=email)
+    Q->>A: PUT /user (password)
   else Email code (existing accounts only)
     B->>Q: POST /signin/code
     Q->>A: /otp (create_user=false)

@@ -223,7 +223,9 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# GiftLoop: must be on (also in hosted projects) so the raw /signup endpoint can't
+# create active accounts for emails nobody has verified. See docs/SECURITY.md.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
@@ -243,8 +245,8 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Emailed codes: sign-in (magic_link), password reset (recovery). confirmation is
-# unused while enable_confirmations = false. All show only the 6-digit code (no links).
+# Emailed codes: sign-in and sign-up (magic_link, confirmation), password reset
+# (recovery). All show only the 6-digit code (no links).
 [auth.email.template.magic_link]
 subject = "Your GiftLoop code"
 content_path = "./supabase/templates/sign_in_code.html"

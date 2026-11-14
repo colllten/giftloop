@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- Sign-up no longer reveals whether an email is registered: it emails a 6-digit
+  code (sign-in code for existing accounts) and sets the password after the code
+  is verified. Requires Supabase "Confirm email" on in hosted projects.
 - Rate limit failed group joins: 5 unknown join codes per user per 15 minutes,
   then joining is blocked until the oldest failure expires.
 - CI/CD (GitHub Actions): DB lint + pgTAP, web tests, image build (GHCR on
