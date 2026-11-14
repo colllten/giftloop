@@ -1,7 +1,7 @@
 -- Schema-level guarantees: tables exist, RLS on everywhere, anon has no access.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(22);
 
 select has_table('public', t, format('table %s exists', t))
 from unnest(array['Profile','Group','GroupUser','GroupJoinCode','Event','Wishlist','Gift','Claim','ClaimParticipant','JoinCodeFailure','GiftViewer']) as t;
@@ -24,6 +24,14 @@ select ok(
   not has_column_privilege('authenticated', 'public."Claim"', 'created_by', 'SELECT'),
   'Claim.created_by is not readable by authenticated'
 );
+
+select ok(
+  not has_column_privilege('authenticated', 'public."Claim"', 'purchased_quantity', 'UPDATE'),
+  'Claim.purchased_quantity has no direct update (private.set_claim_purchased only)'
+);
+
+select has_function('private', 'set_claim_purchased', array['uuid', 'integer'],
+  'private.set_claim_purchased exists');
 
 select has_view('public', 'GiftClaimSummary', 'GiftClaimSummary view exists');
 
