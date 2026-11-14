@@ -1,5 +1,7 @@
 package com.giftloop.wishlist;
 
+import com.giftloop.claim.ClaimQueries;
+import com.giftloop.claim.GiftClaims;
 import com.giftloop.security.DataAccessException;
 import com.giftloop.security.RlsContext;
 import com.giftloop.security.Sql;
@@ -16,6 +18,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,7 +28,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.giftloop.security.Sql.firstLine;
 import static com.giftloop.security.Sql.prepare;
 import static com.giftloop.security.Sql.sqlState;
 
@@ -66,7 +68,7 @@ public class WishlistService {
             id = run(jwt, c -> {
                 try (PreparedStatement s = prepare(c, """
                         insert into "Wishlist" (event_id) values (?)
-                        on conflict (event_id, owner_id) do nothing
+                        on conflict (event_id, owner_id) where removed_at is null do nothing
                         returning id""", eventId);
                      ResultSet r = s.executeQuery()) {
                     if (r.next()) {
@@ -74,7 +76,8 @@ public class WishlistService {
                     }
                 }
                 try (PreparedStatement s = prepare(c,
-                        "select id from \"Wishlist\" where event_id = ? and owner_id = auth.uid()", eventId);
+                        "select id from \"Wishlist\" where event_id = ? and owner_id = auth.uid() and removed_at is null",
+                        eventId);
                      ResultSet r = s.executeQuery()) {
                     r.next();
                     return r.getObject(1, UUID.class);
@@ -94,49 +97,61 @@ public class WishlistService {
 
     /**
      * A wishlist with the gifts the caller can see. The owner also gets each gift's viewers and
-     * the members they can share with.
+     * the members they can share with; others get the members they can add as co-buyers.
+     *
+     * <p>Claims are loaded for everyone but the owner, and for the owner once revealed (event
+     * ended, or the group allows it). Before that the owner's gifts carry no claim data at all,
+     * since RLS returns none and "none" must not read as "unclaimed".
      *
      * @param jwt        caller's verified token
      * @param wishlistId wishlist id
-     * @return the wishlist, or empty if missing or the caller is not a member of its group
+     * @return the wishlist, or empty if missing, removed, or the caller is not a member of its group
      */
     public Optional<WishlistDetail> find(JsonWebToken jwt, UUID wishlistId) {
         UUID me = UUID.fromString(jwt.getSubject());
         return run(jwt, c -> {
             try (PreparedStatement s = prepare(c, """
                     select w.owner_id, w.event_id, e.name as event_name, e.group_id, g.name as group_name,
-                           coalesce(p.display_name, p.username::text) as owner_name
+                           coalesce(p.display_name, p.username::text) as owner_name,
+                           w.removed_at is not null as removed, e.end_date,
+                           coalesce(e.end_date < current_date, false) or g.is_claims_visible_to_owner as revealed
                     from "Wishlist" w
                     join "Event" e on e.id = w.event_id
                     join "Group" g on g.id = e.group_id
                     join "Profile" p on p.id = w.owner_id
                     where w.id = ?""", wishlistId);
                  ResultSet r = s.executeQuery()) {
-                if (!r.next()) {
+                if (!r.next() || r.getBoolean("removed")) {
                     return Optional.empty();
                 }
                 UUID ownerId = r.getObject("owner_id", UUID.class);
                 UUID groupId = r.getObject("group_id", UUID.class);
                 boolean isOwner = ownerId.equals(me);
+                boolean revealed = r.getBoolean("revealed");
+                LocalDate endDate = r.getObject("end_date", LocalDate.class);
                 Map<UUID, Set<UUID>> viewers = isOwner ? viewers(c, wishlistId) : Map.of();
                 List<ViewerOption> members = isOwner ? shareableMembers(c, groupId, ownerId) : List.of();
+                List<ViewerOption> coBuyers = isOwner ? List.of() : shareableMembers(c, groupId, ownerId).stream()
+                        .filter(m -> !m.userId().equals(me)).toList();
                 return Optional.of(new WishlistDetail(wishlistId, r.getObject("event_id", UUID.class),
                         r.getString("event_name"), groupId, r.getString("group_name"), r.getString("owner_name"),
-                        isOwner, gifts(c, wishlistId, viewers), members));
+                        isOwner, gifts(c, me, wishlistId, viewers, !isOwner || revealed), members, revealed,
+                        endDate == null ? null : endDate.plusDays(1), coBuyers));
             }
         });
     }
 
     /**
-     * Deletes the caller's wishlist and its gifts (owner).
+     * Removes the caller's wishlist (owner). Unclaimed gifts are deleted; claimed ones stay visible
+     * to their claimers as removed. The owner can't tell which happened.
      *
      * @param jwt        caller's verified token
      * @param wishlistId wishlist id
      * @throws ForbiddenException if not allowed
      */
     public void delete(JsonWebToken jwt, UUID wishlistId) {
-        update(jwt, "delete from \"Wishlist\" where id = ?", wishlistId);
-        LOG.infof("User %s deleted wishlist %s", jwt.getSubject(), wishlistId);
+        call(jwt, "select private.remove_wishlist(?)", wishlistId);
+        LOG.infof("User %s removed wishlist %s", jwt.getSubject(), wishlistId);
     }
 
     /**
@@ -201,16 +216,17 @@ public class WishlistService {
     }
 
     /**
-     * Deletes a gift (owner).
+     * Removes a gift (owner). Unclaimed gifts are deleted; claimed ones stay visible to their
+     * claimers as removed. The owner can't tell which happened.
      *
      * @param jwt        caller's verified token
-     * @param wishlistId wishlist id
+     * @param wishlistId wishlist id (for the log)
      * @param giftId     gift id
      * @throws ForbiddenException if not allowed
      */
     public void deleteGift(JsonWebToken jwt, UUID wishlistId, UUID giftId) {
-        update(jwt, "delete from \"Gift\" where id = ? and wishlist_id = ?", giftId, wishlistId);
-        LOG.infof("User %s deleted gift %s", jwt.getSubject(), giftId);
+        call(jwt, "select private.remove_gift(?)", giftId);
+        LOG.infof("User %s removed gift %s from wishlist %s", jwt.getSubject(), giftId, wishlistId);
     }
 
     /** Binds name, price, links, quantity, notes and visibility from {@code first}; returns the next index. */
@@ -244,23 +260,31 @@ public class WishlistService {
         }
     }
 
-    private static List<Gift> gifts(Connection c, UUID wishlistId, Map<UUID, Set<UUID>> viewers)
-            throws SQLException {
+    /** Gifts RLS shows, oldest first; claims attached when {@code withClaims}, otherwise null (hidden). */
+    private static List<Gift> gifts(Connection c, UUID me, UUID wishlistId, Map<UUID, Set<UUID>> viewers,
+                                    boolean withClaims) throws SQLException {
+        record Row(UUID id, String name, BigDecimal price, List<String> links, int quantity, String notes,
+                   boolean visibleToAll, boolean removed) {
+        }
+        List<Row> rows = new ArrayList<>();
         try (PreparedStatement s = prepare(c, """
-                select id, name, price, links, quantity, notes, is_visible_to_all
+                select id, name, price, links, quantity, notes, is_visible_to_all, removed_at is not null as removed
                 from "Gift"
                 where wishlist_id = ?
                 order by created_at, id""", wishlistId);
              ResultSet r = s.executeQuery()) {
-            List<Gift> gifts = new ArrayList<>();
             while (r.next()) {
-                UUID id = r.getObject("id", UUID.class);
-                gifts.add(new Gift(id, r.getString("name"), r.getBigDecimal("price"), links(r.getArray("links")),
-                        r.getInt("quantity"), r.getString("notes"), r.getBoolean("is_visible_to_all"),
-                        Set.copyOf(viewers.getOrDefault(id, Set.of()))));
+                rows.add(new Row(r.getObject("id", UUID.class), r.getString("name"), r.getBigDecimal("price"),
+                        links(r.getArray("links")), r.getInt("quantity"), r.getString("notes"),
+                        r.getBoolean("is_visible_to_all"), r.getBoolean("removed")));
             }
-            return gifts;
         }
+        Map<UUID, GiftClaims> claims = withClaims
+                ? ClaimQueries.forGifts(c, me, rows.stream().map(Row::id).toList())
+                : Map.of();
+        return rows.stream().map(row -> new Gift(row.id(), row.name(), row.price(), row.links(), row.quantity(),
+                row.notes(), row.visibleToAll(), Set.copyOf(viewers.getOrDefault(row.id(), Set.of())), row.removed(),
+                withClaims ? claims.get(row.id()) : null)).toList();
     }
 
     private static List<String> links(Array array) throws SQLException {
@@ -314,17 +338,14 @@ public class WishlistService {
         }
     }
 
-    /** Runs an update/delete; zero affected rows means RLS filtered it out. */
-    private void update(JsonWebToken jwt, String sql, Object... params) {
-        int rows = run(jwt, c -> {
+    /** Calls a {@code private.*} function that raises 42501 when not allowed. */
+    private void call(JsonWebToken jwt, String sql, Object... params) {
+        run(jwt, c -> {
             try (PreparedStatement s = prepare(c, sql, params)) {
-                return s.executeUpdate();
+                s.execute();
+                return null;
             }
         });
-        if (rows == 0) {
-            LOG.warnf("User %s was not allowed to: %s", jwt.getSubject(), firstLine(sql));
-            throw new ForbiddenException();
-        }
     }
 
     /** Runs as the user; insufficient-privilege errors become {@link ForbiddenException}. */

@@ -11,8 +11,10 @@ import java.util.UUID;
  * @param myRole   caller's role
  * @param members  members, owner first, then admins, then by name
  * @param joinCode join code, or null when the caller may not see it (plain members)
+ * @param claimsVisibleToOwner wishlist owners see claims before their event ends
  */
-public record GroupDetail(UUID id, String name, GroupRole myRole, List<GroupMember> members, String joinCode) {
+public record GroupDetail(UUID id, String name, GroupRole myRole, List<GroupMember> members, String joinCode,
+                          boolean claimsVisibleToOwner) {
 
     /**
      * Join code for display, e.g. {@code ABCD-EFGH}.

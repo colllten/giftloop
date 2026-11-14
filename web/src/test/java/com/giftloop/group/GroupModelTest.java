@@ -19,7 +19,7 @@ class GroupModelTest {
     }
 
     private static GroupDetail as(GroupRole role) {
-        return new GroupDetail(UUID.randomUUID(), "G", role, List.of(), null);
+        return new GroupDetail(UUID.randomUUID(), "G", role, List.of(), null, false);
     }
 
     /** Names are trimmed and must be 1–100 characters. */

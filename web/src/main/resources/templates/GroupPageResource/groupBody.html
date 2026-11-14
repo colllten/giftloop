@@ -107,6 +107,24 @@
     <button type="submit">Save name</button>
   </form>
 </details>
+
+<h2>Claims</h2>
+{#if g.claimsVisibleToOwner}
+<p>Wishlist owners can see who claimed what on their lists, even before an event ends.</p>
+<form hx-post="/groups/{g.id}/claims-visibility" hx-target="#group-body">
+  {#csrf /}
+  <input type="hidden" name="visible" value="false">
+  <button type="submit">Hide claims until events end</button>
+</form>
+{#else}
+<p>Wishlist owners see claims on their lists the day after an event ends.</p>
+<form hx-post="/groups/{g.id}/claims-visibility" hx-target="#group-body"
+      hx-confirm="Let every wishlist owner in {g.name} see who claimed what right away? This spoils surprises.">
+  {#csrf /}
+  <input type="hidden" name="visible" value="true">
+  <button type="submit">Show claims to owners now</button>
+</form>
+{/if}
 {/if}
 
 <h2>{#if g.callerIsOwner}Delete group{#else}Leave group{/if}</h2>

@@ -19,7 +19,8 @@ import java.util.UUID;
 public record WishlistDto(UUID id, UUID eventId, String ownerName, boolean mine, List<GiftDto> gifts) {
 
     /**
-     * A gift as returned by the API. Visibility fields are only included for the owner.
+     * A gift as returned by the API. Visibility fields are only included for the owner; claim
+     * fields are left out while claims are hidden from the caller (owner before reveal).
      *
      * @param id           gift id
      * @param name         gift name
@@ -29,14 +30,18 @@ public record WishlistDto(UUID id, UUID eventId, String ownerName, boolean mine,
      * @param notes        notes, or null
      * @param visibleToAll shared with everyone (owner only)
      * @param viewerIds    allowlist (owner only)
+     * @param claimedQuantity units claimed across all claims (may exceed {@code quantity})
+     * @param claimedByMe  whether the caller is on a claim
+     * @param removed      true when the owner removed it (only its claimers see it); omitted otherwise
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GiftDto(UUID id, String name, BigDecimal price, List<String> links, int quantity, String notes,
-                          Boolean visibleToAll, Set<UUID> viewerIds) {
+                          Boolean visibleToAll, Set<UUID> viewerIds, Integer claimedQuantity, Boolean claimedByMe,
+                          Boolean removed) {
     }
 
     /**
-     * Maps a wishlist to its API shape, leaving out visibility for non-owners.
+     * Maps a wishlist to its API shape, leaving out visibility for non-owners and hidden claims.
      *
      * @param w wishlist
      * @return DTO
@@ -45,7 +50,10 @@ public record WishlistDto(UUID id, UUID eventId, String ownerName, boolean mine,
         List<GiftDto> gifts = w.gifts().stream()
                 .map(g -> new GiftDto(g.id(), g.name(), g.price(), g.links(), g.quantity(), g.notes(),
                         w.callerIsOwner() ? g.visibleToAll() : null,
-                        w.callerIsOwner() ? g.viewerIds() : null))
+                        w.callerIsOwner() ? g.viewerIds() : null,
+                        g.claimsShown() ? g.claims().claimedQuantity() : null,
+                        g.claimsShown() ? g.claims().hasMine() : null,
+                        g.removed() ? Boolean.TRUE : null))
                 .toList();
         return new WishlistDto(w.id(), w.eventId(), w.ownerName(), w.callerIsOwner(), gifts);
     }

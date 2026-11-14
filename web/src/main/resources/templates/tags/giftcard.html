@@ -1,0 +1,75 @@
+{! One gift on a wishlist. Params: w (WishlistDetail), gift (Gift), optional
+   notice / error. Claim forms swap this <li> (#gift-<id>) in place. !}
+<li class="card gift{#if gift.removed} gift-removed{/if}" id="gift-{gift.id}">
+  <div class="gift-head">
+    <h3 class="gift-name">{gift.name}</h3>
+    <span class="gift-chips">
+      {#if w.callerIsOwner}<span class="chip chip-visibility">{gift.visibilityLabel}</span>{/if}
+      {#if gift.removed}
+      <span class="chip chip-taken">Removed by {w.ownerName}</span>
+      {#else if gift.claimsShown && gift.claims.statusLabel(gift.quantity)}
+      <span class="chip {#if gift.claims.hasMine}chip-mine{#else}chip-taken{/if}">{gift.claims.statusLabel(gift.quantity)}</span>
+      {/if}
+    </span>
+  </div>
+  {#if gift.priceLabel || gift.quantity > 1}
+  <p class="gift-meta">{gift.priceLabel ?: ''}{#if gift.priceLabel && gift.quantity > 1} · {/if}{#if gift.quantity > 1}Wants {gift.quantity}{/if}</p>
+  {/if}
+  {#if w.callerIsOwner && !gift.visibleToAll && !gift.viewerIds.isEmpty}
+  <p class="hint">Visible to {w.viewerNames(gift)}</p>
+  {/if}
+  {#if gift.notes}<p class="gift-notes">{gift.notes}</p>{/if}
+  {#if !gift.links.isEmpty}
+  <ul class="gift-links">
+    {#for link in gift.links}
+    <li><a href="{link}" rel="noopener noreferrer" target="_blank">{link}</a></li>
+    {/for}
+  </ul>
+  {/if}
+  {#if gift.removed}
+  <p class="notice gift-removed-note">{w.ownerName} took this off their list. If you already bought it, it's yours to keep or return. Release your claim when you're done.</p>
+  {/if}
+  {#if gift.claimsShown && !gift.claims.others.isEmpty}
+  <ul class="claim-list" aria-label="Claims on {gift.name}">
+    {#for claim in gift.claims.others}
+    <li>{claim.who} claimed {claim.quantity}</li>
+    {/for}
+  </ul>
+  {/if}
+  {#if notice??}<p class="ok" role="status">{notice}</p>{/if}
+  {#if error??}<p class="error" role="alert">{error}</p>{/if}
+  {#if !w.callerIsOwner}
+    {#if gift.claimsShown && gift.claims.hasMine}
+    {#let claim=gift.claims.myClaim}
+    {#claimmanage claim=claim giftName=gift.name removed=gift.removed manageCoBuyers=true coBuyers=w.coBuyersFor(claim)
+                  base=w.claimUrl(gift, claim) target=gift.target swap="outerHTML" view="" /}
+    {/let}
+    {#else if !gift.removed}
+    <details class="claim-start">
+      <summary>Claim this gift</summary>
+      <form hx-post="/wishlists/{w.id}/gifts/{gift.id}/claims" hx-target="#gift-{gift.id}" hx-swap="outerHTML"
+            {#if gift.fullyClaimed}hx-confirm="{gift.name} is already fully claimed ({gift.claims.claimedQuantity} of {gift.quantity}). Claim it anyway?"{/if}>
+        {#csrf /}
+        <div class="field">
+          <label for="claim-quantity-{gift.id}">How many will you get?</label>
+          <input id="claim-quantity-{gift.id}" name="quantity" type="number" min="1" max="999" required
+                 value="{gift.suggestedClaimQuantity}">
+        </div>
+        <label class="choice"><input type="checkbox" name="anonymous"> Hide my name from others in the group</label>
+        <p class="hint">{#if w.claimsRevealed}{w.ownerName} can see claims on this list.{#else}{w.ownerName} won't see claims until the event is over.{/if}</p>
+        <button type="submit">Claim</button>
+      </form>
+    </details>
+    {/if}
+  {/if}
+  {#if w.callerIsOwner}
+  <div class="gift-actions">
+    <button type="button" hx-get="/wishlists/{w.id}/gifts/{gift.id}/edit" hx-target="closest li" hx-swap="innerHTML">Edit</button>
+    <form hx-post="/wishlists/{w.id}/gifts/{gift.id}/delete" hx-target="#wishlist-body"
+          hx-confirm="Remove {gift.name} from your wishlist?">
+      {#csrf /}
+      <button type="submit" class="danger">Remove</button>
+    </form>
+  </div>
+  {/if}
+</li>

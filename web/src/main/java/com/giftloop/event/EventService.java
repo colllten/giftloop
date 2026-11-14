@@ -122,15 +122,15 @@ public class EventService {
         });
     }
 
-    /** Wishlists of an event, the caller's first; gift counts only include gifts RLS shows. */
+    /** Live wishlists of an event, the caller's first; gift counts only include live gifts RLS shows. */
     private static List<EventDetail.EventWishlist> wishlists(Connection c, UUID eventId) throws SQLException {
         try (PreparedStatement s = prepare(c, """
                 select w.id, coalesce(p.display_name, p.username::text) as owner_name,
-                       (select count(*) from "Gift" gi where gi.wishlist_id = w.id) as gift_count,
+                       (select count(*) from "Gift" gi where gi.wishlist_id = w.id and gi.removed_at is null) as gift_count,
                        w.owner_id = auth.uid() as mine
                 from "Wishlist" w
                 join "Profile" p on p.id = w.owner_id
-                where w.event_id = ?
+                where w.event_id = ? and w.removed_at is null
                 order by mine desc, lower(coalesce(p.display_name, p.username::text)), w.id""", eventId);
              ResultSet r = s.executeQuery()) {
             List<EventDetail.EventWishlist> wishlists = new ArrayList<>();
