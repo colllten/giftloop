@@ -1,6 +1,4 @@
-package com.giftloop.group;
-
-import com.giftloop.BrowserSession;
+package com.giftloop;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -14,7 +12,7 @@ import java.util.UUID;
  * @param id          auth user id
  * @param displayName name shown to groups
  */
-record TestUser(BrowserSession browser, UUID id, String displayName) {
+public record TestUser(BrowserSession browser, UUID id, String displayName) {
 
     /**
      * Signs up and completes onboarding.
@@ -22,7 +20,7 @@ record TestUser(BrowserSession browser, UUID id, String displayName) {
      * @param displayName display name to use
      * @return the user
      */
-    static TestUser create(String displayName) {
+    public static TestUser create(String displayName) {
         BrowserSession browser = new BrowserSession();
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         browser.signUp("grp-" + suffix + "@example.com", "long-enough-pw").then().header("HX-Redirect", "/");

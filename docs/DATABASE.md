@@ -21,6 +21,8 @@ erDiagram
   Event ||--o{ Wishlist : "one per member"
   Profile ||--o{ Wishlist : owns
   Wishlist ||--o{ Gift : ""
+  Gift ||--o{ GiftViewer : "allowlist"
+  Profile ||--o{ GiftViewer : ""
   Gift ||--o{ Claim : ""
   Claim ||--o{ ClaimParticipant : "co-purchasers"
   Profile ||--o{ ClaimParticipant : ""
@@ -35,7 +37,8 @@ erDiagram
 | `JoinCodeFailure` | One row per unknown join code entered (`user_id`, `failed_at`); guesses aren't stored. RLS on, no policies, no grants: only `join_group_by_code` uses it. Rows older than the window are pruned on the user's next attempt. |
 | `Event` | `end_date` drives claim reveal. Null = never auto-reveal. |
 | `Wishlist` | Unique per (`event_id`, `owner_id`). Owner must be a group member. |
-| `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. |
+| `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. `is_visible_to_all` (default true); when false, only `GiftViewer` rows can see it. |
+| `GiftViewer` | (`gift_id`, `user_id`) allowlist for restricted gifts. Owner-only read/write. Viewer must be a group member, not the owner (`23514`). Rows are dropped when the member leaves the group. |
 | `Claim` | `quantity` units of a gift. Total claimed **may exceed** `Gift.quantity`. `created_by` is not readable via the API. |
 | `ClaimParticipant` | Creator auto-added. Any participant can be `is_anonymous`. |
 | `GiftClaimSummary` (view) | Per-gift `claim_count` / `claimed_quantity`, RLS applied (security_invoker). |
@@ -64,8 +67,21 @@ roles (`admin` ↔ `member`). Delete on `GroupUser` allows leaving (not the
 owner), owner removing anyone else, admins removing plain members.
 `private.is_group_admin` counts the owner as an admin.
 
+## Gift Visibility
+A member sees a gift if any of these hold (`private.gift_visible_to`):
+- they own the wishlist;
+- `is_visible_to_all` is true;
+- they have a `GiftViewer` row;
+- they take part in a claim on it. This keeps an item visible to claimers after
+  the owner narrows the list, without telling the owner it was claimed.
+
+Hidden gifts can't be claimed, and their claims stay hidden too
+(`can_claim_gift` / `can_view_claims`). A claimer can't add a co-participant who
+can't see the gift (`23514`), since that would grant them visibility.
+Only the owner can read a gift's viewer list.
+
 ## Claim Visibility
-- Group members (non-owners) see all claims on a gift.
+- Group members (non-owners) who can see a gift see all claims on it.
 - The wishlist owner sees claims only when `Event.end_date < current_date` (UTC)
   or `Group.is_claims_visible_to_owner` is true.
 - Anonymous participants are visible only to people on the same claim, even

@@ -13,7 +13,10 @@
   <script src="/_static/htmx.org/dist/htmx.min.js" defer></script>
 </head>
 <body>
-  <main>
+  {! Signed-in pages override with {#header}{#appheader nav=true current='…' /}{/header}. !}
+  {#insert header}{#appheader /}{/}
+  {! Width: page-narrow (default, forms) or page-wide (dashboards). See docs/DESIGN.md. !}
+  <main class="page {#insert width}page-narrow{/}">
     {#insert main}{/}
   </main>
 </body>

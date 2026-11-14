@@ -1,11 +1,9 @@
 {#include base}
 {#title}GiftLoop{/title}
+{#header}{#if profile}{#appheader nav=true current='groups' /}{#else}{#appheader /}{/if}{/header}
+{#width}{#if profile}page-wide{#else}page-narrow{/if}{/width}
 {#main}
 {#if profile}
-<div class="topbar">
-  <a href="/profile">Your profile</a>
-  {#signout /}
-</div>
 <h1>Hi, {profile.displayName}!</h1>
 <h2>Your groups</h2>
 {#if groups.isEmpty}

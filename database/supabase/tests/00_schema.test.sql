@@ -1,10 +1,10 @@
 -- Schema-level guarantees: tables exist, RLS on everywhere, anon has no access.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(18);
 
 select has_table('public', t, format('table %s exists', t))
-from unnest(array['Profile','Group','GroupUser','GroupJoinCode','Event','Wishlist','Gift','Claim','ClaimParticipant','JoinCodeFailure']) as t;
+from unnest(array['Profile','Group','GroupUser','GroupJoinCode','Event','Wishlist','Gift','Claim','ClaimParticipant','JoinCodeFailure','GiftViewer']) as t;
 
 select is(
   (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace

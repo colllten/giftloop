@@ -1,0 +1,16 @@
+<form hx-post="/groups/{view.groupId}/events" hx-target="this" hx-swap="outerHTML">
+  {#csrf /}
+  <div class="field">
+    <label for="event-name">Event name <span class="hint">For example, “Christmas 2026” or “Mom's birthday”.</span></label>
+    <input id="event-name" name="name" type="text" maxlength="100" required autofocus value="{view.name ?: ''}"
+           {#if view.error('name')}aria-invalid="true" aria-describedby="event-name-error"{/if}>
+    {#if view.error('name')}<p id="event-name-error" class="error" role="alert">{view.error('name')}</p>{/if}
+  </div>
+  <div class="field">
+    <label for="event-end">Last day <span class="hint">Optional. Wishlist owners can see who claimed what the day after.</span></label>
+    <input id="event-end" name="endDate" type="date" value="{view.endDate ?: ''}"
+           {#if view.error('endDate')}aria-invalid="true" aria-describedby="event-end-error"{/if}>
+    {#if view.error('endDate')}<p id="event-end-error" class="error" role="alert">{view.error('endDate')}</p>{/if}
+  </div>
+  <button class="primary" type="submit">Create event</button>
+</form>
