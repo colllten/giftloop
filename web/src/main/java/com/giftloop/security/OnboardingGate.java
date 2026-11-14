@@ -3,6 +3,7 @@ package com.giftloop.security;
 import com.giftloop.profile.Profile;
 import com.giftloop.profile.ProfileService;
 import com.giftloop.web.Redirects;
+import io.quarkus.security.UnauthorizedException;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
@@ -11,6 +12,8 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.ext.Provider;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.logging.Logger;
+
+import java.util.Optional;
 
 /**
  * Redirects signed-in users who haven't finished onboarding to {@code /onboarding}
@@ -35,7 +38,8 @@ public class OnboardingGate implements ContainerRequestFilter {
     HttpHeaders headers;
 
     /**
-     * Aborts with a redirect when the caller is signed in but not onboarded.
+     * Aborts with a redirect when the caller is signed in but not onboarded, and signs out
+     * callers whose account was deleted.
      *
      * @param request current request
      */
@@ -44,8 +48,13 @@ public class OnboardingGate implements ContainerRequestFilter {
         if (identity.isAnonymous()) {
             return;
         }
-        boolean onboarded = profiles.findOwn(jwt).map(Profile::onboarded).orElse(false);
-        if (!onboarded) {
+        Optional<Profile> profile = profiles.findOwn(jwt);
+        if (profile.isEmpty()) {
+            // Token still verifies, but the account was deleted (e.g. from another device).
+            LOG.infof("Signing out %s: account no longer exists", jwt.getSubject());
+            throw new UnauthorizedException();
+        }
+        if (!profile.get().onboarded()) {
             LOG.debugf("Redirecting %s to onboarding", jwt.getSubject());
             String next = request.getUriInfo().getRequestUri().getRawPath();
             request.abortWith(Redirects.to(headers, Redirects.withNext("/onboarding", next)).build());

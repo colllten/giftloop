@@ -61,6 +61,17 @@ public class AvatarService {
     }
 
     /**
+     * Deletes a stored avatar file without touching the profile (used once the account is gone).
+     * Failures are logged, not thrown.
+     *
+     * @param jwt  caller's verified token (still valid after the account is deleted)
+     * @param path {@code <owner>/<file>}, or null for none
+     */
+    public void deleteFile(JsonWebToken jwt, String path) {
+        deleteQuietly(jwt, path);
+    }
+
+    /**
      * Loads a user's avatar if the caller may see it.
      *
      * @param jwt    caller's verified token
@@ -89,7 +100,7 @@ public class AvatarService {
         try {
             storage.delete(bearer(jwt), parts[0], parts[1]);
         } catch (RuntimeException e) {
-            LOG.warnf("Could not delete old avatar %s: %s", path, e.getMessage());
+            LOG.warnf("Could not delete avatar %s: %s", path, e.getMessage());
         }
     }
 

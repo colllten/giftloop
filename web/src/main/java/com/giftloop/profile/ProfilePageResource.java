@@ -5,6 +5,7 @@ import com.giftloop.web.Redirects;
 import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.qute.TemplateInstance;
 import io.quarkus.security.Authenticated;
+import io.quarkus.security.UnauthorizedException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -254,8 +255,8 @@ public class ProfilePageResource {
     }
 
     private Profile currentProfile() {
-        return profiles.findOwn(jwt).orElseThrow(() -> new IllegalStateException(
-                "Signed-in user has no Profile row: " + jwt.getSubject()));
+        // No row: the account was deleted while this token is still valid; treat as signed out.
+        return profiles.findOwn(jwt).orElseThrow(UnauthorizedException::new);
     }
 
     private static boolean hasFile(FileUpload upload) {

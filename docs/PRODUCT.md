@@ -32,6 +32,7 @@ Signed-in users land on **Your groups** (`/`), listing their groups with
 | Make someone owner | ✓ (becomes admin) | | |
 | Delete group | ✓ | | |
 | Leave | after handing off ownership | ✓ | ✓ |
+| Delete account | picks or auto-assigns new owners | ✓ | ✓ |
 
 ## Group Users
 Users within groups can create their wishlists. Others within the group can
@@ -61,6 +62,14 @@ On someone else's wishlist, **Claim this gift** with a quantity. **My claims**
 - If the owner removes a claimed gift (or the whole wishlist), claimers still
   see it as **Removed by {owner}** until they release it. The owner sees it
   disappear either way.
+
+## Deleting an Account
+**Profile → Delete my account** (`/account/delete`). Type your username to confirm.
+- Groups you own: pick a new owner, or leave it on **Automatic** (oldest admin,
+  else oldest member). Groups where you're alone are deleted.
+- Your wishlists are removed; gifts already claimed stay on the claimers' lists
+  as **Removed by Former member**.
+- Claims you share pass to a co-buyer; claims only you made are released.
 
 # In-Scope Features
 - Group setup (above)

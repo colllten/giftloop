@@ -36,11 +36,11 @@ erDiagram
 | `GroupJoinCode` | One code per group, `^[A-HJ-NP-Z2-9]{8}$` (no I/O/0/1). Readable by owner/admins only. Created by trigger with the group. |
 | `JoinCodeFailure` | One row per unknown join code entered (`user_id`, `failed_at`); guesses aren't stored. RLS on, no policies, no grants: only `join_group_by_code` uses it. Rows older than the window are pruned on the user's next attempt. |
 | `Event` | `end_date` drives claim reveal. Null = never auto-reveal. |
-| `Wishlist` | One live wishlist per (`event_id`, `owner_id`) (partial unique index). Owner must be a group member. `removed_at` set = removed shell kept for claimed gifts. |
+| `Wishlist` | One live wishlist per (`event_id`, `owner_id`) (partial unique index). Owner must be a group member. `removed_at` set = removed shell kept for claimed gifts. `owner_id` is null only on removed shells whose owner deleted their account. |
 | `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. `is_visible_to_all` (default true); when false, only `GiftViewer` rows can see it. `removed_at` set = owner removed it after it was claimed. |
 | `GiftViewer` | (`gift_id`, `user_id`) allowlist for restricted gifts. Owner-only read/write. Viewer must be a group member, not the owner (`23514`). Rows are dropped when the member leaves the group. |
 | `Claim` | `quantity` units of a gift. Total claimed **may exceed** `Gift.quantity`. `purchased_quantity` (0..`quantity`) = units bought; set only via `private.set_claim_purchased`, by any participant. `created_by` is not readable via the API. |
-| `ClaimParticipant` | Creator auto-added and can't leave (release the claim instead). Any participant can be `is_anonymous`. |
+| `ClaimParticipant` | Creator auto-added and can't leave (release the claim instead). Any participant can be `is_anonymous`. `joined_at` orders who inherits the claim. |
 | `GiftClaimSummary` (view) | Per-gift `claim_count` / `claimed_quantity`, RLS applied (security_invoker). |
 
 ## Profiles & Avatars
@@ -110,7 +110,22 @@ Because `Claim.created_by` is column-restricted, `select *` on `Claim` fails.
 Select columns explicitly (`id, gift_id, quantity, created_at`) and use
 `ClaimParticipant` for "who" / "my claims".
 
+## Account Deletion
+`private.delete_my_account(username)` (authenticated; `42501` signed out, `23514`
+unless the username matches, ignoring case) deletes the caller's `auth.users` row.
+The app first calls `transfer_group_ownership` for groups where the owner chose a
+successor, in the same transaction.
+
+`handle_profile_deleted` (before delete on `Profile`) runs for every auth-user
+deletion, including Studio and the Admin API:
+1. Owned groups pass to `pick_group_successor`: oldest admin, else oldest member
+   (`joined_at`). No one else in the group → group deleted.
+   `group_successor(group_id)` exposes the pick to the owner only.
+2. Claims they created pass to the earliest co-buyer; solo claims are released.
+3. Live wishlists go through `remove_wishlist_unchecked` (same as
+   `remove_wishlist`). Shells lose their owner (`on delete set null`), so
+   owner checks use `is distinct from auth.uid()`; the app shows "Former member".
+
 ## Known Gaps
-- Deleting the owner's account leaves the group without an owner.
 - An admin who is also a wishlist owner can flip the reveal flag.
 - Deleting an event or group still cascades its claims (everyone sees it go).
