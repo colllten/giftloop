@@ -87,7 +87,9 @@ media queries because they can't read custom properties.
 | `.join-code` | Large, spaced join code |
 | `.group-list` / `.group-link` | Linked group cards on home |
 | `.link-list` / `.link-card` / `.link-card-title` | Linked cards for events and wishlists |
-| `.member-list` / `.member` | Member rows with optional `.member-actions` details |
+| `.member-list` / `.member` | Member rows with an optional compact "Manage" menu (`.member-actions` details, `.member-menu`) |
+| `details[data-menu]` | Dropdown menu: closes on outside click or Escape (`assets/app.js`) |
+| `.visually-hidden` | Text for screen readers only, e.g. the member name in "Manage" |
 | `.brand` | Wordmark text |
 | `.site-header` / `.site-nav` | Site header and signed-in nav. Current link is underlined |
 | `.page-head` | Title block above a wide page's content |
