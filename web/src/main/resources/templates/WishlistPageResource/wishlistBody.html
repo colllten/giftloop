@@ -4,46 +4,29 @@
 <h1>{w.title}</h1>
 {#if w.callerIsOwner}<p class="hint">You choose who can see each gift.</p>{/if}
 {#if view.notice}<p class="ok" role="status">{view.notice}</p>{/if}
+{#if w.revealNotice}<p class="banner">{w.revealNotice}</p>{/if}
 </div>
 
 <div class="wishlist-layout">
 <section class="wishlist-gifts" aria-labelledby="gifts-heading">
 <h2 id="gifts-heading">Gifts</h2>
+{#if view.showFilters}
+{! Links work without JS; HTMX swaps the body and keeps ?show= in the URL. !}
+<nav class="gift-filter" aria-label="Filter gifts by claim">
+  {#for f in view.filters}
+  <a href="{view.pageUrl(f)}" hx-get="{view.bodyUrl(f)}" hx-target="#wishlist-body" hx-push-url="{view.pageUrl(f)}"
+     {#if view.isCurrent(f)}aria-current="page"{/if}>{f.label} <span class="gift-filter-count">{view.count(f)}</span></a>
+  {/for}
+</nav>
+{/if}
 {#if w.gifts.isEmpty}
 <p class="notice">{#if w.callerIsOwner}Your wishlist is empty. Add your first gift.{#else}There's nothing here for you yet.{/if}</p>
+{#else if view.shownGifts.isEmpty}
+<p class="notice">{view.emptyFilterMessage}</p>
 {#else}
 <ul class="gift-list">
-  {#for gift in w.gifts}
-  <li class="card gift">
-    <div class="gift-head">
-      <h3 class="gift-name">{gift.name}</h3>
-      {#if w.callerIsOwner}<span class="chip chip-visibility">{gift.visibilityLabel}</span>{/if}
-    </div>
-    {#if gift.priceLabel || gift.quantity > 1}
-    <p class="gift-meta">{gift.priceLabel ?: ''}{#if gift.priceLabel && gift.quantity > 1} · {/if}{#if gift.quantity > 1}Wants {gift.quantity}{/if}</p>
-    {/if}
-    {#if w.callerIsOwner && !gift.visibleToAll && !gift.viewerIds.isEmpty}
-    <p class="hint">Visible to {w.viewerNames(gift)}</p>
-    {/if}
-    {#if gift.notes}<p class="gift-notes">{gift.notes}</p>{/if}
-    {#if !gift.links.isEmpty}
-    <ul class="gift-links">
-      {#for link in gift.links}
-      <li><a href="{link}" rel="noopener noreferrer" target="_blank">{link}</a></li>
-      {/for}
-    </ul>
-    {/if}
-    {#if w.callerIsOwner}
-    <div class="gift-actions">
-      <button type="button" hx-get="/wishlists/{w.id}/gifts/{gift.id}/edit" hx-target="closest li" hx-swap="innerHTML">Edit</button>
-      <form hx-post="/wishlists/{w.id}/gifts/{gift.id}/delete" hx-target="#wishlist-body"
-            hx-confirm="Remove {gift.name} from your wishlist?">
-        {#csrf /}
-        <button type="submit" class="danger">Remove</button>
-      </form>
-    </div>
-    {/if}
-  </li>
+  {#for gift in view.shownGifts}
+  {#giftcard w=w gift=gift /}
   {/for}
 </ul>
 {/if}

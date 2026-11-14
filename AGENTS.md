@@ -3,7 +3,8 @@ GiftLoop is a webapp that allows families, friends, and groups of people to
 make wishlists/registries of gift items for events/holidays that others in the
 group can claim to purchase. The app aims to reduce confusion and duplication
 of gift purchases among groups. Wishlist owners cannot see who has claimed
-to purchase items on their wishlist until after the event is over.
+to purchase items on their wishlist until after the event is over, unless a
+group owner/admin reveals claims early.
 
 # Technology Stack
 GiftLoop is in early stages of development and is pending several architectural

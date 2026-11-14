@@ -103,6 +103,59 @@ sequenceDiagram
   end
 ```
 
+## Claims
+`com.giftloop.claim`: `ClaimPageResource` (HTML: `/claims` and claim actions
+under `/wishlists/{w}/gifts/{g}/claims`), `ClaimResource` (`GET /api/claims`),
+`ClaimService`, and `ClaimQueries` (claim reads shared with `WishlistService` in
+the same transaction). Claim actions re-render the gift card (`#gift-<id>`,
+outerHTML); on My claims they post `view=claims` and swap `#claims-body`.
+`claim` depends on `wishlist` to re-render cards, and `wishlist` uses `claim`
+records: a deliberate two-way package dependency.
+
+Wishlist claim filters (`GiftFilter`) run in Java on the loaded gifts. Filter
+links `hx-get /wishlists/{id}/body?show=…` and push `?show=` to the URL; gift
+edits keep it via `HX-Current-URL`. While claims are hidden from the caller, any
+`show` value is treated as "all", so filtering can't hint at claims.
+
+`WishlistService.find` loads claims for members, and for the owner only once
+revealed (`end_date < current_date` or `Group.is_claims_visible_to_owner`). Before
+that the owner's gifts carry no claim data (`Gift.claims == null`), so "hidden"
+never reads as "unclaimed".
+```mermaid
+sequenceDiagram
+  participant B as Browser (HTMX)
+  participant Q as Quarkus
+  participant P as Postgres
+  B->>Q: POST /wishlists/{w}/gifts/{g}/claims (quantity, anonymous)
+  Q->>Q: ClaimForm.validate (1..999; over-claim confirmed in the UI)
+  Q->>P: BEGIN as caller
+  Q->>P: insert "Claim" (RLS: can_claim_gift; trigger: member, not owner, live gift)
+  P->>P: trigger adds caller as ClaimParticipant
+  opt anonymous
+    Q->>P: update own ClaimParticipant set is_anonymous
+  end
+  Q->>P: COMMIT (name never visible un-anonymized)
+  Q-->>B: refreshed #gift-<id> card
+```
+
+Owners remove gifts through `private.remove_gift` / `remove_wishlist` (see
+`docs/DATABASE.md` → Gift Removal); the response is the same whether the gift
+was claimed or not.
+```mermaid
+sequenceDiagram
+  participant O as Owner (HTMX)
+  participant Q as Quarkus
+  participant P as Postgres
+  O->>Q: POST /wishlists/{w}/gifts/{g}/delete
+  Q->>P: select private.remove_gift(g) as caller
+  alt has claims
+    P->>P: set removed_at (claimers still see it)
+  else unclaimed
+    P->>P: delete "Gift"
+  end
+  Q-->>O: body without the gift ("Gift removed.")
+```
+
 # Error Handling
 SQL failures in `RlsContext` are rethrown as `DataAccessException` (500).
 Expected rule outcomes (SQLSTATE class 23, `42501`, `P0002`, `PT429`) are logged at

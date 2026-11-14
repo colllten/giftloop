@@ -1,0 +1,81 @@
+{! The caller's claim and what they can change. Params: claim (GiftClaim),
+   giftName, removed (gift removed by its owner), manageCoBuyers (show co-buyer
+   controls), coBuyers (members the creator can still add), base (claim URL), target / swap (HTMX
+   swap for responses), view ('' on the wishlist, 'claims' on My claims). !}
+<div class="my-claim">
+  <p class="my-claim-summary">
+    <strong>You claimed {claim.quantity}</strong>{#if claim.othersLabel} with {claim.othersLabel}{/if}{#if claim.callerIsAnonymous} · your name is hidden{/if}
+  </p>
+  <details class="claim-manage">
+    <summary>Manage your claim<span class="visually-hidden"> on {giftName}</span></summary>
+
+    {#if claim.callerIsCreator && !removed}
+    <form hx-post="{base}" hx-target="{target}" hx-swap="{swap}">
+      {#csrf /}
+      <input type="hidden" name="view" value="{view}">
+      <div class="field">
+        <label for="claim-{claim.id}-quantity">How many</label>
+        <input id="claim-{claim.id}-quantity" name="quantity" type="number" min="1" max="999" required value="{claim.quantity}">
+      </div>
+      <button type="submit">Save</button>
+    </form>
+    {/if}
+
+    <form hx-post="{base}/anonymous" hx-target="{target}" hx-swap="{swap}">
+      {#csrf /}
+      <input type="hidden" name="view" value="{view}">
+      <input type="hidden" name="anonymous" value="{#if claim.callerIsAnonymous}false{#else}true{/if}">
+      <button type="submit">{#if claim.callerIsAnonymous}Show my name{#else}Hide my name{/if}</button>
+      <p class="hint">Hidden names are only seen by people on this claim.</p>
+    </form>
+
+    {#if claim.callerIsCreator && !removed && manageCoBuyers}
+    <h4>Co-buyers</h4>
+    {#if !claim.others.isEmpty}
+    <ul class="co-buyer-list">
+      {#for p in claim.others}
+      <li>
+        <span>{p.label}</span>
+        <form hx-post="{base}/participants/{p.userId}/delete" hx-target="{target}" hx-swap="{swap}">
+          {#csrf /}
+          <input type="hidden" name="view" value="{view}">
+          <button type="submit" class="link-button">Remove<span class="visually-hidden"> {p.name}</span></button>
+        </form>
+      </li>
+      {/for}
+    </ul>
+    {/if}
+    {#if !coBuyers.isEmpty}
+    <form hx-post="{base}/participants" hx-target="{target}" hx-swap="{swap}">
+      {#csrf /}
+      <input type="hidden" name="view" value="{view}">
+      <div class="field">
+        <label for="claim-{claim.id}-cobuyer">Split it with</label>
+        <select id="claim-{claim.id}-cobuyer" name="userId" required>
+          {#for m in coBuyers}<option value="{m.userId}">{m.name}</option>{/for}
+        </select>
+      </div>
+      <button type="submit">Add co-buyer</button>
+    </form>
+    {#else if claim.others.isEmpty}
+    <p class="hint">No one else in the group can join this claim.</p>
+    {/if}
+    {/if}
+
+    {#if claim.callerIsCreator}
+    <form hx-post="{base}/delete" hx-target="{target}" hx-swap="{swap}"
+          hx-confirm="Release your claim on {giftName}?{#if !claim.others.isEmpty} Your co-buyers are removed too.{/if}">
+      {#csrf /}
+      <input type="hidden" name="view" value="{view}">
+      <button type="submit" class="danger">Release claim</button>
+    </form>
+    {#else}
+    <form hx-post="{base}/participants/{claim.myUserId}/delete" hx-target="{target}" hx-swap="{swap}"
+          hx-confirm="Leave this claim on {giftName}?">
+      {#csrf /}
+      <input type="hidden" name="view" value="{view}">
+      <button type="submit" class="danger">Leave claim</button>
+    </form>
+    {/if}
+  </details>
+</div>

@@ -1,0 +1,32 @@
+{! My claims body (#claims-body). Claim forms here post view=claims and swap
+   this whole body. !}
+{#if view.notice}<p class="ok" role="status">{view.notice}</p>{/if}
+{#if view.error}<p class="error" role="alert">{view.error}</p>{/if}
+{#if view.isEmpty}
+<p class="notice">You haven't claimed anything yet. Open someone's wishlist from one of your groups and pick a gift.</p>
+{/if}
+
+{#for e in view.upcoming}
+<section class="claim-event" aria-labelledby="claims-{e.eventId}">
+  <h2 id="claims-{e.eventId}">{e.eventName}</h2>
+  <p class="hint">{e.groupName}{#if e.endDateLabel} · Ends {e.endDateLabel}{/if}</p>
+  <ul class="gift-list">
+    {#for c in e.claims}{#myclaimcard c=c /}{/for}
+  </ul>
+</section>
+{/for}
+
+{#if !view.past.isEmpty}
+<details class="claim-past">
+  <summary>Past events ({view.past.size})</summary>
+  {#for e in view.past}
+  <section class="claim-event" aria-labelledby="claims-{e.eventId}">
+    <h2 id="claims-{e.eventId}">{e.eventName}</h2>
+    <p class="hint">{e.groupName}{#if e.endDateLabel} · Ended {e.endDateLabel}{/if}</p>
+    <ul class="gift-list">
+      {#for c in e.claims}{#myclaimcard c=c /}{/for}
+    </ul>
+  </section>
+  {/for}
+</details>
+{/if}

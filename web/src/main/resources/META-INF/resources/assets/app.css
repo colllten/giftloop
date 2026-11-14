@@ -306,6 +306,44 @@ details form { margin-top: var(--space-4); }
 .viewer-picker { margin-left: var(--space-3); padding-left: var(--space-4); border-left: 2px solid var(--color-border); }
 .visibility:not(:has(input[value="selected"]:checked)) .viewer-picker { display: none; }
 
+/* ---------- Claims ---------- */
+/* Claim filter: pill links; the current one is filled and marked with aria-current. */
+.gift-filter { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-4); }
+.gift-filter a {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: var(--tap); padding: 0 var(--space-4); border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-strong); color: var(--color-text);
+  font-size: var(--text-sm); font-weight: 700; text-decoration: none;
+}
+.gift-filter a:hover { background: var(--color-surface-sunken); }
+.gift-filter a[aria-current] { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
+.gift-filter-count { font-weight: 400; }
+.gift-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* Removed gifts stay readable but step back; the chip and note carry the meaning. */
+.gift-removed { background: var(--color-surface-sunken); border-style: dashed; border-color: var(--color-border-strong); }
+.gift-removed-note { margin: var(--space-3) 0 0; background: var(--color-surface); }
+.claim-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.claim-list li + li { margin-top: var(--space-1); }
+.my-claim { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
+.my-claim-summary { margin: 0; }
+.claim-manage, .claim-start { margin-top: var(--space-3); }
+.claim-manage form + form { margin-top: var(--space-4); }
+.claim-manage h4 { margin: var(--space-4) 0 var(--space-2); }
+.claim-manage .field, .claim-start .field { margin-bottom: var(--space-3); }
+.claim-manage input[type="number"], .claim-start input[type="number"] { max-width: 8rem; }
+.claim-start .choice { margin-bottom: var(--space-2); }
+.co-buyer-list { list-style: none; margin: 0; padding: 0; }
+.co-buyer-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  min-height: var(--tap); border-bottom: 1px solid var(--color-border);
+}
+.co-buyer-list form { margin: 0; }
+.co-buyer-list .link-button { min-height: var(--tap); }
+.claim-event + .claim-event { margin-top: var(--space-5); }
+.claim-event > h2 { margin-bottom: var(--space-1); }
+.claim-event > .hint { margin-bottom: var(--space-3); }
+.claim-past > .claim-event:first-of-type > h2 { margin-top: var(--space-4); }
+
 /* ---------- Desktop (56rem / 896px and up) ---------- */
 @media (min-width: 56rem) {
   .site-header-inner { padding: var(--space-3) var(--space-6); }

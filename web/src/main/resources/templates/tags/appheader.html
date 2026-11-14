@@ -1,11 +1,12 @@
 {! Site header. Signed-out pages use it bare; signed-in pages pass nav=true and
-   current='groups' | 'profile' | '' to show the nav and mark the active link. !}
+   current='groups' | 'claims' | 'profile' | '' to show the nav and mark the active link. !}
 <header class="site-header">
   <div class="site-header-inner">
     <a class="brand" href="/">GiftLoop</a>
     {#if nav??}
     <nav class="site-nav" aria-label="Main">
       <a href="/"{#if current == 'groups'} aria-current="page"{/if}>Your groups</a>
+      <a href="/claims"{#if current == 'claims'} aria-current="page"{/if}>My claims</a>
       <a href="/profile"{#if current == 'profile'} aria-current="page"{/if}>Profile</a>
       {#signout /}
     </nav>

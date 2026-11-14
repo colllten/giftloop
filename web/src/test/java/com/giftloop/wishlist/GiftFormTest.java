@@ -88,15 +88,15 @@ class GiftFormTest {
     /** Owner chip text says who can see the gift. */
     @Test
     void visibilityLabel() {
-        Gift everyone = new Gift(UUID.randomUUID(), "x", null, List.of(), 1, null, true, Set.of());
+        Gift everyone = new Gift(UUID.randomUUID(), "x", null, List.of(), 1, null, true, Set.of(), false, null);
         Gift two = new Gift(UUID.randomUUID(), "x", null, List.of(), 1, null, false,
-                Set.of(UUID.randomUUID(), UUID.randomUUID()));
-        Gift none = new Gift(UUID.randomUUID(), "x", null, List.of(), 1, null, false, Set.of());
+                Set.of(UUID.randomUUID(), UUID.randomUUID()), false, null);
+        Gift none = new Gift(UUID.randomUUID(), "x", null, List.of(), 1, null, false, Set.of(), false, null);
         assertEquals("Everyone", everyone.visibilityLabel());
         assertEquals("Shared with 2 people", two.visibilityLabel());
         assertEquals("Only you", none.visibilityLabel());
         assertEquals("$5.00", new Gift(UUID.randomUUID(), "x", new BigDecimal("5"), List.of(), 1, null, true,
-                Set.of()).priceLabel());
+                Set.of(), false, null).priceLabel());
     }
 
     /** Editing prefills from the gift. */
@@ -104,7 +104,7 @@ class GiftFormTest {
     void fromGift() {
         UUID viewer = UUID.randomUUID();
         Gift gift = new Gift(UUID.randomUUID(), "Socks", new BigDecimal("15.00"),
-                List.of("https://a.example", "https://b.example"), 3, "Size M", false, Set.of(viewer));
+                List.of("https://a.example", "https://b.example"), 3, "Size M", false, Set.of(viewer), false, null);
         GiftForm f = GiftForm.from(gift);
         assertEquals("15.00", f.price());
         assertEquals("3", f.quantity());

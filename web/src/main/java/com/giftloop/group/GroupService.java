@@ -90,8 +90,9 @@ public class GroupService {
         return run(jwt, c -> {
             String name;
             GroupRole myRole;
+            boolean claimsVisible;
             try (PreparedStatement s = c.prepareStatement("""
-                    select g.name, gu.role::text as role
+                    select g.name, gu.role::text as role, g.is_claims_visible_to_owner
                     from "Group" g
                     join "GroupUser" gu on gu.group_id = g.id and gu.user_id = auth.uid()
                     where g.id = ?""")) {
@@ -102,9 +103,11 @@ public class GroupService {
                     }
                     name = r.getString("name");
                     myRole = GroupRole.fromDb(r.getString("role"));
+                    claimsVisible = r.getBoolean("is_claims_visible_to_owner");
                 }
             }
-            return Optional.of(new GroupDetail(groupId, name, myRole, members(c, groupId, me), joinCode(c, groupId)));
+            return Optional.of(new GroupDetail(groupId, name, myRole, members(c, groupId, me), joinCode(c, groupId),
+                    claimsVisible));
         });
     }
 
@@ -181,6 +184,20 @@ public class GroupService {
     public void rename(JsonWebToken jwt, UUID groupId, GroupForm form) {
         update(jwt, "update \"Group\" set name = ? where id = ?", form.name(), groupId);
         LOG.infof("User %s renamed group %s", jwt.getSubject(), groupId);
+    }
+
+    /**
+     * Lets wishlist owners in the group see claims before their event ends, or hides them again
+     * until then (owner/admin).
+     *
+     * @param jwt     caller's verified token
+     * @param groupId group id
+     * @param visible whether owners may see claims early
+     * @throws ForbiddenException if not allowed
+     */
+    public void setClaimsVisibleToOwner(JsonWebToken jwt, UUID groupId, boolean visible) {
+        update(jwt, "update \"Group\" set is_claims_visible_to_owner = ? where id = ?", visible, groupId);
+        LOG.infof("User %s set claims visible to owners=%s in group %s", jwt.getSubject(), visible, groupId);
     }
 
     /**

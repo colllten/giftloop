@@ -231,6 +231,23 @@ public class GroupPageResource {
     }
 
     /**
+     * Shows claims to wishlist owners before their event ends, or hides them until then (owner/admin).
+     *
+     * @param id      group id
+     * @param visible {@code true} to show claims early
+     * @return refreshed body
+     */
+    @POST
+    @Path("groups/{id}/claims-visibility")
+    @Operation(hidden = true)
+    public TemplateInstance setClaimsVisibility(@PathParam("id") UUID id, @RestForm boolean visible) {
+        groups.setClaimsVisibleToOwner(jwt, id, visible);
+        return Templates.groupBody(withNotice(id, visible
+                ? "Wishlist owners can now see claims on their lists."
+                : "Claims are hidden from wishlist owners until each event ends."));
+    }
+
+    /**
      * Replaces the join code (owner/admin).
      *
      * @param id group id
