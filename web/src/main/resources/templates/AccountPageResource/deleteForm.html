@@ -1,0 +1,35 @@
+<form hx-post="/account/delete" hx-target="this" hx-swap="outerHTML">
+  {#csrf /}
+  {#if view.error}<p class="error" role="alert">{view.error}</p>{/if}
+
+  {#if !view.sharedGroups.isEmpty}
+  <h2>Groups you own</h2>
+  <p class="hint">Pick who runs each group after you. If you don't pick, it goes to the longest-standing admin, or the longest-standing member if there are no admins.</p>
+  {#for group in view.sharedGroups}
+  <div class="field">
+    <label for="successor-{group.id}">New owner of {group.name}</label>
+    <select id="successor-{group.id}" name="successor">
+      <option value="{group.id}:auto">Automatic: {group.autoSuccessorName}</option>
+      {#for member in group.members}
+      <option value="{group.id}:{member.id}"{#if view.form.chose(group.id, member.id)} selected{/if}>{member.name}</option>
+      {/for}
+    </select>
+  </div>
+  {/for}
+  {/if}
+
+  {#if !view.soloGroups.isEmpty}
+  <h2>Groups that will be deleted</h2>
+  <p class="hint">You're the only member, so these are deleted with your account.</p>
+  <ul>
+    {#for group in view.soloGroups}<li>{group.name}</li>{/for}
+  </ul>
+  {/if}
+
+  <div class="field">
+    <label for="confirm-username">Type your username, <strong>{view.username}</strong>, to confirm</label>
+    <input id="confirm-username" name="username" type="text" required autocomplete="off"
+           autocapitalize="none" spellcheck="false" value="{view.form.username}">
+  </div>
+  <button type="submit" class="danger">Delete my account</button>
+</form>
