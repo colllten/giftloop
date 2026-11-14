@@ -1,7 +1,7 @@
 -- Schema-level guarantees: tables exist, RLS on everywhere, anon has no access.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(20);
 
 select has_table('public', t, format('table %s exists', t))
 from unnest(array['Profile','Group','GroupUser','GroupJoinCode','Event','Wishlist','Gift','Claim','ClaimParticipant','JoinCodeFailure','GiftViewer']) as t;
@@ -40,6 +40,16 @@ select ok(
 select ok(
   not has_table_privilege('authenticated', 'public."JoinCodeFailure"', 'SELECT, INSERT, UPDATE, DELETE'),
   'JoinCodeFailure is not accessible to authenticated'
+);
+
+select ok(
+  not has_table_privilege('authenticated', 'public."Gift"', 'DELETE'),
+  'Gift has no direct delete (private.remove_gift only)'
+);
+
+select ok(
+  not has_table_privilege('authenticated', 'public."Wishlist"', 'DELETE'),
+  'Wishlist has no direct delete (private.remove_wishlist only)'
 );
 
 select * from finish();
