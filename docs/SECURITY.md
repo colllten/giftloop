@@ -25,6 +25,11 @@ Supabase Auth. A `Profile` row is created for each new auth user by trigger.
 - CSRF: all form posts (incl. HTMX) carry a token checked by `quarkus-rest-csrf`
   (cookie `gl_csrf`, field `csrf_token`).
 - `next` redirect targets must be same-site relative paths.
+- Account deletion needs a signed-in session plus the typed username
+  (`private.delete_my_account`). Cookies are cleared; Supabase sessions cascade
+  with the auth user. The avatar file is deleted with the still-valid token.
+  Access tokens on other devices stay valid until expiry; pages treat a token
+  with no `Profile` row as signed out (cookies cleared, sent to sign-in).
 
 ## Authorization
 Enforced in Postgres with RLS using the caller's JWT. See

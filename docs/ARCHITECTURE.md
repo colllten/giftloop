@@ -160,6 +160,36 @@ sequenceDiagram
   Q-->>O: body without the gift ("Gift removed.")
 ```
 
+## Account
+`com.giftloop.account`: `AccountPageResource` (`/account/delete`, public
+`/account/deleted`) and `AccountService`. Handoff rules live in Postgres (see
+`docs/DATABASE.md` → Account Deletion).
+```mermaid
+sequenceDiagram
+  participant B as Browser (HTMX)
+  participant Q as Quarkus
+  participant P as Postgres
+  participant S as Supabase Storage
+  B->>Q: GET /account/delete
+  Q->>P: owned groups + private.group_successor (as caller)
+  B->>Q: POST /account/delete (username, successor=group:user|auto)
+  Q->>Q: username matches? (else form with error)
+  Q->>P: BEGIN as caller
+  loop each chosen successor
+    Q->>P: select private.transfer_group_ownership(g, u)
+  end
+  Q->>P: select private.delete_my_account(username)
+  P->>P: delete auth.users → trigger on Profile: hand off groups, claims, remove wishlists
+  alt refused (23514 / 42501)
+    P-->>Q: ROLLBACK
+    Q-->>B: form with error
+  else ok
+    Q->>P: COMMIT
+    Q->>S: delete avatar (still-valid token)
+    Q-->>B: clear cookies + HX-Redirect /account/deleted
+  end
+```
+
 # Error Handling
 SQL failures in `RlsContext` are rethrown as `DataAccessException` (500).
 Expected rule outcomes (SQLSTATE class 23, `42501`, `P0002`, `PT429`) are logged at
