@@ -45,12 +45,14 @@ On someone else's wishlist, **Claim this gift** with a quantity. **My claims**
 
 | Action | Claim creator | Co-buyer | Other members | Wishlist owner |
 |---|---|---|---|---|
-| See claims (who + how many) | ✓ | ✓ | ✓ | after reveal |
+| See claims (who, how many, how many bought) | ✓ | ✓ | ✓ | after reveal |
 | See anonymous names | ✓ | ✓ | | |
+| Mark how many are bought | ✓ | ✓ | | |
 | Change quantity, add/remove co-buyers, release | ✓ | | | |
 | Hide/show own name, leave | own name | ✓ | | |
 
 - Claiming past what the owner wants is allowed after a confirm step.
+- Bought can't exceed the claim, and a claim can't be lowered below what's bought.
 - Filter a wishlist by **All**, **Still needed** (unclaimed or partly claimed),
   **Fully claimed** or **Claimed by me** (`?show=needed|claimed|mine`). Owners
   get the filters (minus "mine") only after the reveal.

@@ -138,6 +138,10 @@ sequenceDiagram
   Q-->>B: refreshed #gift-<id> card
 ```
 
+Marking units bought (`POST …/claims/{c}/purchased`) calls
+`private.set_claim_purchased` as the caller, so co-buyers can set it without an
+update grant on `Claim` (which would let them change `quantity`).
+
 Owners remove gifts through `private.remove_gift` / `remove_wishlist` (see
 `docs/DATABASE.md` → Gift Removal); the response is the same whether the gift
 was claimed or not.

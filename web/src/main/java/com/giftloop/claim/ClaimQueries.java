@@ -43,11 +43,11 @@ public final class ClaimQueries {
         if (giftIds.isEmpty()) {
             return result;
         }
-        record Row(UUID id, UUID giftId, int quantity, boolean creator) {
+        record Row(UUID id, UUID giftId, int quantity, int purchased, boolean creator) {
         }
         List<Row> rows = new ArrayList<>();
         try (PreparedStatement s = c.prepareStatement("""
-                select c.id, c.gift_id, c.quantity, private.is_claim_creator(c.id) as is_creator
+                select c.id, c.gift_id, c.quantity, c.purchased_quantity, private.is_claim_creator(c.id) as is_creator
                 from "Claim" c
                 where c.gift_id = any(?)
                 order by c.created_at, c.id""")) {
@@ -55,7 +55,7 @@ public final class ClaimQueries {
             try (ResultSet r = s.executeQuery()) {
                 while (r.next()) {
                     rows.add(new Row(r.getObject("id", UUID.class), r.getObject("gift_id", UUID.class),
-                            r.getInt("quantity"), r.getBoolean("is_creator")));
+                            r.getInt("quantity"), r.getInt("purchased_quantity"), r.getBoolean("is_creator")));
                 }
             }
         }
@@ -63,7 +63,7 @@ public final class ClaimQueries {
         Map<UUID, List<GiftClaim>> byGift = new LinkedHashMap<>();
         for (Row row : rows) {
             byGift.computeIfAbsent(row.giftId(), k -> new ArrayList<>()).add(new GiftClaim(row.id(), row.quantity(),
-                    participants.getOrDefault(row.id(), List.of()), row.creator()));
+                    row.purchased(), participants.getOrDefault(row.id(), List.of()), row.creator()));
         }
         byGift.forEach((giftId, claims) -> result.put(giftId, new GiftClaims(List.copyOf(claims))));
         return result;

@@ -31,13 +31,14 @@ public record WishlistDto(UUID id, UUID eventId, String ownerName, boolean mine,
      * @param visibleToAll shared with everyone (owner only)
      * @param viewerIds    allowlist (owner only)
      * @param claimedQuantity units claimed across all claims (may exceed {@code quantity})
+     * @param purchasedQuantity units marked bought across all claims
      * @param claimedByMe  whether the caller is on a claim
      * @param removed      true when the owner removed it (only its claimers see it); omitted otherwise
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GiftDto(UUID id, String name, BigDecimal price, List<String> links, int quantity, String notes,
-                          Boolean visibleToAll, Set<UUID> viewerIds, Integer claimedQuantity, Boolean claimedByMe,
-                          Boolean removed) {
+                          Boolean visibleToAll, Set<UUID> viewerIds, Integer claimedQuantity,
+                          Integer purchasedQuantity, Boolean claimedByMe, Boolean removed) {
     }
 
     /**
@@ -52,6 +53,7 @@ public record WishlistDto(UUID id, UUID eventId, String ownerName, boolean mine,
                         w.callerIsOwner() ? g.visibleToAll() : null,
                         w.callerIsOwner() ? g.viewerIds() : null,
                         g.claimsShown() ? g.claims().claimedQuantity() : null,
+                        g.claimsShown() ? g.claims().purchasedQuantity() : null,
                         g.claimsShown() ? g.claims().hasMine() : null,
                         g.removed() ? Boolean.TRUE : null))
                 .toList();

@@ -22,7 +22,7 @@ class GiftFilterTest {
 
     private static GiftClaims claimed(int quantity, boolean mine) {
         Participant p = new Participant(UUID.randomUUID(), "P", false, mine);
-        return new GiftClaims(List.of(new GiftClaim(UUID.randomUUID(), quantity, List.of(p), mine)));
+        return new GiftClaims(List.of(new GiftClaim(UUID.randomUUID(), quantity, 0, List.of(p), mine)));
     }
 
     /** Unknown values fall back to All; the page URL's show= carries over. */

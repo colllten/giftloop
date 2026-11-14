@@ -38,6 +38,7 @@ class ClaimResourceTest {
                 .body("[0].creator", is(true))
                 .body("[0].anonymous", is(false))
                 .body("[0].coBuyers", hasItem("Carol"))
+                .body("[0].purchased", is(0))
                 .body("[0].ownerName", is("Alice"));
     }
 
@@ -52,6 +53,7 @@ class ClaimResourceTest {
         given().auth().oauth2(SupabaseAuthTestClient.accessToken("carol"))
                 .when().get("/api/wishlists/" + ALICE_LIST).then().statusCode(200)
                 .body(HEADPHONES_FIELD + ".claimedQuantity", is(1))
+                .body(HEADPHONES_FIELD + ".purchasedQuantity", is(0))
                 .body(HEADPHONES_FIELD + ".claimedByMe", is(true));
     }
 

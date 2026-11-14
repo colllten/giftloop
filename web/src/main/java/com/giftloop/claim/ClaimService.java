@@ -29,7 +29,7 @@ import static com.giftloop.security.Sql.sqlState;
 /**
  * Claims as the calling user. RLS and triggers enforce the rules: non-owner members who can see a
  * live gift claim it; the creator changes quantity, adds/removes co-buyers and releases; any
- * participant toggles their own anonymity or leaves; owners don't see claims before the reveal.
+ * participant marks units bought, toggles their own anonymity or leaves; owners don't see claims before the reveal.
  *
  * <p>Deviation from layering: throws JAX-RS {@link ForbiddenException}/{@link BadRequestException}
  * directly (like {@code WishlistService}), since the only callers are HTTP resources.
@@ -99,11 +99,47 @@ public class ClaimService {
      * @param jwt      caller's verified token
      * @param claimId  claim id
      * @param quantity new quantity (validated)
-     * @throws ForbiddenException if the caller did not create the claim
+     * @throws ForbiddenException  if the caller did not create the claim
+     * @throws BadRequestException if {@code quantity} is below the units already marked bought
      */
     public void updateQuantity(JsonWebToken jwt, UUID claimId, int quantity) {
-        update(jwt, "update \"Claim\" set quantity = ? where id = ?", quantity, claimId);
+        try {
+            update(jwt, "update \"Claim\" set quantity = ? where id = ?", quantity, claimId);
+        } catch (DataAccessException e) {
+            if (Sql.CHECK_VIOLATION.equals(sqlState(e))) {
+                LOG.warnf("User %s tried to set claim %s below its purchased units", jwt.getSubject(), claimId);
+                throw new BadRequestException("You've marked more than that as bought. Lower that first.");
+            }
+            throw e;
+        }
         LOG.infof("User %s set claim %s to %d", jwt.getSubject(), claimId, quantity);
+    }
+
+    /**
+     * Sets how many units of a claim are bought (any participant).
+     *
+     * @param jwt       caller's verified token
+     * @param claimId   claim id
+     * @param purchased units bought (validated as non-negative)
+     * @throws ForbiddenException  if the caller is not on the claim
+     * @throws BadRequestException if {@code purchased} exceeds the claimed quantity
+     */
+    public void setPurchased(JsonWebToken jwt, UUID claimId, int purchased) {
+        try {
+            run(jwt, c -> {
+                try (PreparedStatement s = prepare(c, "select private.set_claim_purchased(?, ?)", claimId, purchased)) {
+                    s.execute();
+                    return null;
+                }
+            });
+        } catch (DataAccessException e) {
+            if (Sql.CHECK_VIOLATION.equals(sqlState(e))) {
+                LOG.warnf("User %s tried to mark %d bought on claim %s", jwt.getSubject(), purchased, claimId);
+                throw new BadRequestException("You can't mark more than you claimed.");
+            }
+            throw e;
+        }
+        LOG.infof("User %s marked %d bought on claim %s", jwt.getSubject(), purchased, claimId);
     }
 
     /**
@@ -195,14 +231,15 @@ public class ClaimService {
     public List<MyClaim.EventClaims> myClaims(JsonWebToken jwt) {
         UUID me = UUID.fromString(jwt.getSubject());
         List<MyClaim> claims = run(jwt, c -> {
-            record Row(UUID claimId, int quantity, boolean creator, UUID giftId, String giftName,
+            record Row(UUID claimId, int quantity, int purchased, boolean creator, UUID giftId, String giftName,
                        BigDecimal price, List<String> links, int wanted, boolean giftRemoved,
                        UUID wishlistId, boolean wishlistRemoved, String ownerName, UUID eventId, String eventName,
                        LocalDate endDate, boolean past, String groupName) {
             }
             List<Row> rows = new ArrayList<>();
             try (PreparedStatement s = c.prepareStatement("""
-                    select c.id as claim_id, c.quantity, private.is_claim_creator(c.id) as is_creator,
+                    select c.id as claim_id, c.quantity, c.purchased_quantity,
+                           private.is_claim_creator(c.id) as is_creator,
                            g.id as gift_id, g.name as gift_name, g.price, g.links, g.quantity as wanted,
                            g.removed_at is not null as gift_removed,
                            w.id as wishlist_id, w.removed_at is not null as wishlist_removed,
@@ -224,6 +261,7 @@ public class ClaimService {
                  ResultSet r = s.executeQuery()) {
                 while (r.next()) {
                     rows.add(new Row(r.getObject("claim_id", UUID.class), r.getInt("quantity"),
+                            r.getInt("purchased_quantity"),
                             r.getBoolean("is_creator"), r.getObject("gift_id", UUID.class), r.getString("gift_name"),
                             r.getBigDecimal("price"), links(r.getArray("links")), r.getInt("wanted"),
                             r.getBoolean("gift_removed"), r.getObject("wishlist_id", UUID.class),
@@ -236,7 +274,8 @@ public class ClaimService {
             Map<UUID, List<Participant>> participants =
                     ClaimQueries.participants(c, me, rows.stream().map(Row::claimId).toList());
             return rows.stream().map(row -> new MyClaim(
-                    new GiftClaim(row.claimId(), row.quantity(), participants.getOrDefault(row.claimId(), List.of()),
+                    new GiftClaim(row.claimId(), row.quantity(), row.purchased(),
+                            participants.getOrDefault(row.claimId(), List.of()),
                             row.creator()),
                     row.giftId(), row.giftName(), row.price(), row.links(), row.wanted(), row.giftRemoved(),
                     row.wishlistId(), row.wishlistRemoved(), row.ownerName(), row.eventId(), row.eventName(),

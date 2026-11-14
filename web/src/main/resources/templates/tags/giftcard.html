@@ -32,7 +32,7 @@
   {#if gift.claimsShown && !gift.claims.others.isEmpty}
   <ul class="claim-list" aria-label="Claims on {gift.name}">
     {#for claim in gift.claims.others}
-    <li>{claim.who} claimed {claim.quantity}</li>
+    <li>{claim.who} claimed {claim.quantity}{#if claim.purchasedLabel} · {claim.purchasedLabel}{/if}</li>
     {/for}
   </ul>
   {/if}

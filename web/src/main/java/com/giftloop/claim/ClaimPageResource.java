@@ -29,7 +29,7 @@ import java.util.UUID;
  * <p>Actions live under the gift ({@code /wishlists/{w}/gifts/{g}/claims/...}) so the response can
  * re-render that gift's card ({@code #gift-<id>}, outerHTML). Forms on My claims post
  * {@code view=claims} and get the refreshed {@code #claims-body} instead. Expected rule failures
- * (bad quantity, a co-buyer who can't buy the gift) re-render with an inline error.
+ * (bad quantity, too many marked bought, a co-buyer who can't buy the gift) re-render with an inline error.
  */
 @Path("/")
 @Produces(MediaType.TEXT_HTML)
@@ -146,8 +146,35 @@ public class ClaimPageResource {
         if (!errors.isEmpty()) {
             return respond(wishlistId, giftId, view, null, errors.get("quantity"));
         }
-        claims.updateQuantity(jwt, claimId, form.quantityValue());
-        return respond(wishlistId, giftId, view, "Claim updated.", null);
+        return attempt(wishlistId, giftId, view, "Claim updated.",
+                () -> claims.updateQuantity(jwt, claimId, form.quantityValue()));
+    }
+
+    /**
+     * Sets how many units of the claim are bought (any participant).
+     *
+     * @param wishlistId wishlist id
+     * @param giftId     gift id
+     * @param claimId    claim id
+     * @param purchased  units bought, 0 to the claim's quantity
+     * @param view       {@code claims} when posted from My claims
+     * @return the refreshed card or My claims body, with an error if it's out of range
+     */
+    @POST
+    @Path("wishlists/{wishlistId}/gifts/{giftId}/claims/{claimId}/purchased")
+    @Operation(hidden = true)
+    public Response setPurchased(@PathParam("wishlistId") UUID wishlistId, @PathParam("giftId") UUID giftId,
+                                 @PathParam("claimId") UUID claimId, @RestForm String purchased,
+                                 @RestForm String view) {
+        PurchasedForm form = PurchasedForm.of(purchased);
+        Map<String, String> errors = form.validate();
+        if (!errors.isEmpty()) {
+            return respond(wishlistId, giftId, view, null, errors.get("purchased"));
+        }
+        int count = form.value();
+        String notice = count == 0 ? "Marked as not bought." : "Marked " + count + " as bought.";
+        return attempt(wishlistId, giftId, view, notice,
+                () -> claims.setPurchased(jwt, claimId, count));
     }
 
     /**

@@ -1,11 +1,26 @@
-{! The caller's claim and what they can change. Params: claim (GiftClaim),
+{! The caller's claim and what they can change. Any participant marks units
+   bought; the rest is in "Manage". Params: claim (GiftClaim),
    giftName, removed (gift removed by its owner), manageCoBuyers (show co-buyer
    controls), coBuyers (members the creator can still add), base (claim URL), target / swap (HTMX
    swap for responses), view ('' on the wishlist, 'claims' on My claims). !}
 <div class="my-claim">
   <p class="my-claim-summary">
-    <strong>You claimed {claim.quantity}</strong>{#if claim.othersLabel} with {claim.othersLabel}{/if}{#if claim.callerIsAnonymous} · your name is hidden{/if}
+    <strong>You claimed {claim.quantity}</strong>{#if claim.othersLabel} with {claim.othersLabel}{/if}{#if claim.purchasedLabel} · {claim.purchasedLabel}{/if}{#if claim.callerIsAnonymous} · your name is hidden{/if}
   </p>
+  <form class="claim-purchase" hx-post="{base}/purchased" hx-target="{target}" hx-swap="{swap}">
+    {#csrf /}
+    <input type="hidden" name="view" value="{view}">
+    {#if claim.quantity == 1}
+    <input type="hidden" name="purchased" value="{#if claim.isFullyPurchased}0{#else}1{/if}">
+    <button type="submit">{#if claim.isFullyPurchased}Mark as not bought{#else}Mark as bought{/if}<span class="visually-hidden"> {giftName}</span></button>
+    {#else}
+    <div class="field">
+      <label for="claim-{claim.id}-purchased">How many have you bought?</label>
+      <input id="claim-{claim.id}-purchased" name="purchased" type="number" min="0" max="{claim.quantity}" required value="{claim.purchased}">
+    </div>
+    <button type="submit">Save<span class="visually-hidden"> bought count for {giftName}</span></button>
+    {/if}
+  </form>
   <details class="claim-manage">
     <summary>Manage your claim<span class="visually-hidden"> on {giftName}</span></summary>
 
@@ -64,7 +79,7 @@
 
     {#if claim.callerIsCreator}
     <form hx-post="{base}/delete" hx-target="{target}" hx-swap="{swap}"
-          hx-confirm="Release your claim on {giftName}?{#if !claim.others.isEmpty} Your co-buyers are removed too.{/if}">
+          hx-confirm="Release your claim on {giftName}?{#if claim.purchased > 0} You marked {claim.purchased} as bought.{/if}{#if !claim.others.isEmpty} Your co-buyers are removed too.{/if}">
       {#csrf /}
       <input type="hidden" name="view" value="{view}">
       <button type="submit" class="danger">Release claim</button>

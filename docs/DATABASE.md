@@ -39,7 +39,7 @@ erDiagram
 | `Wishlist` | One live wishlist per (`event_id`, `owner_id`) (partial unique index). Owner must be a group member. `removed_at` set = removed shell kept for claimed gifts. |
 | `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. `is_visible_to_all` (default true); when false, only `GiftViewer` rows can see it. `removed_at` set = owner removed it after it was claimed. |
 | `GiftViewer` | (`gift_id`, `user_id`) allowlist for restricted gifts. Owner-only read/write. Viewer must be a group member, not the owner (`23514`). Rows are dropped when the member leaves the group. |
-| `Claim` | `quantity` units of a gift. Total claimed **may exceed** `Gift.quantity`. `created_by` is not readable via the API. |
+| `Claim` | `quantity` units of a gift. Total claimed **may exceed** `Gift.quantity`. `purchased_quantity` (0..`quantity`) = units bought; set only via `private.set_claim_purchased`, by any participant. `created_by` is not readable via the API. |
 | `ClaimParticipant` | Creator auto-added and can't leave (release the claim instead). Any participant can be `is_anonymous`. |
 | `GiftClaimSummary` (view) | Per-gift `claim_count` / `claimed_quantity`, RLS applied (security_invoker). |
 
@@ -102,6 +102,9 @@ co-buyers. Releasing the last claim purges the gift, then an empty removed wishl
 - Anonymous participants are visible only to people on the same claim, even
   after reveal.
 - Owners can't claim or co-purchase their own gifts. Participants must be group members.
+- `purchased_quantity` is part of the claim, so it follows the same visibility.
+  `private.set_claim_purchased(claim_id, n)` allows any participant (42501
+  otherwise); out of range, or lowering `quantity` below it, is `23514`.
 
 Because `Claim.created_by` is column-restricted, `select *` on `Claim` fails.
 Select columns explicitly (`id, gift_id, quantity, created_at`) and use

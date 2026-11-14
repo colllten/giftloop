@@ -9,10 +9,36 @@ import java.util.stream.Collectors;
  *
  * @param id              claim id
  * @param quantity        units claimed
+ * @param purchased       units marked bought (0 to {@code quantity})
  * @param participants    participants visible to the caller (anonymous ones only if the caller is on it)
  * @param callerIsCreator whether the caller created the claim (and may change it)
  */
-public record GiftClaim(UUID id, int quantity, List<Participant> participants, boolean callerIsCreator) {
+public record GiftClaim(UUID id, int quantity, int purchased, List<Participant> participants,
+                        boolean callerIsCreator) {
+
+    /**
+     * Whether every claimed unit is marked bought.
+     *
+     * @return true if {@code purchased} covers {@code quantity}
+     */
+    public boolean isFullyPurchased() {
+        return purchased >= quantity;
+    }
+
+    /**
+     * Purchase progress for display, never colour alone (DESIGN.md).
+     *
+     * @return "bought" (single unit), "all bought", "N bought", or null when nothing is bought
+     */
+    public String purchasedLabel() {
+        if (purchased == 0) {
+            return null;
+        }
+        if (isFullyPurchased()) {
+            return quantity == 1 ? "bought" : "all bought";
+        }
+        return purchased + " bought";
+    }
 
     /**
      * Whether the caller is on this claim.
