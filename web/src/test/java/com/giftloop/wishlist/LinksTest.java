@@ -27,6 +27,9 @@ class LinksTest {
         assertEquals("https://www.amazon.com/Kettle/dp/B000123?th=1",
                 Links.tidy("https://www.amazon.com/Kettle/dp/B000123/ref=sr_1_3?th=1&ref_=nav"));
         assertEquals("https://www.amazon.co.uk/dp/B000123", Links.tidy("https://www.amazon.co.uk/dp/B000123/ref=abc"));
+        assertEquals("https://www.amazon.com/Switch/dp/B0TEST?psc=1&th=1",
+                Links.tidy("https://www.amazon.com/Switch/dp/B0TEST/ref=sr_1_1?crid=X&dib=eyJ2.abc&dib_tag=se"
+                        + "&keywords=bluish%2Bwhite&qid=1794754016&sprefix=%2Caps&sr=8-1&psc=1&th=1"));
         assertEquals("https://shop.example/ref=keep", Links.tidy("https://shop.example/ref=keep"));
     }
 

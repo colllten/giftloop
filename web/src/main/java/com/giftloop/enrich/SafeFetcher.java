@@ -35,7 +35,9 @@ import java.util.concurrent.TimeoutException;
  *       metadata), CGNAT, multicast, unique-local or reserved ranges.</li>
  *   <li>Redirects are followed by hand (at most {@value #MAX_REDIRECTS}) and each hop is
  *       re-checked.</li>
- *   <li>Short timeouts, a size cap per kind, and a content-type check.</li>
+ *   <li>Short timeouts, a size cap per kind, and a content-type check. Pages over the cap are
+ *       truncated (product details sit near the top; Amazon pages run past 2 MB); images over
+ *       the cap are refused.</li>
  * </ul>
  *
  * <p>Residual risk: the HTTP client resolves the host again after the check, so a DNS
@@ -57,15 +59,17 @@ public class SafeFetcher {
      * What is being fetched: decides the accepted content types and size cap.
      */
     public enum Kind {
-        /** A product page. */
-        HTML(1_536 * 1024),
-        /** A product photo. */
-        IMAGE(5 * 1024 * 1024);
+        /** A product page; anything past the cap is dropped. */
+        HTML(1_536 * 1024, true),
+        /** A product photo; over the cap fails. */
+        IMAGE(5 * 1024 * 1024, false);
 
         private final int maxBytes;
+        private final boolean truncates;
 
-        Kind(int maxBytes) {
+        Kind(int maxBytes, boolean truncates) {
             this.maxBytes = maxBytes;
+            this.truncates = truncates;
         }
 
         /**
@@ -289,7 +293,7 @@ public class SafeFetcher {
         HttpResponse.BodyHandler<byte[]> handler = info -> {
             String type = info.headers().firstValue("Content-Type").orElse("");
             return info.statusCode() == 200 && kind.accepts(type)
-                    ? new CappedBody(kind.maxBytes())
+                    ? new CappedBody(kind.maxBytes(), kind.truncates)
                     : HttpResponse.BodySubscribers.replacing(null);
         };
         CompletableFuture<HttpResponse<byte[]>> future = client.sendAsync(request, handler);
@@ -306,15 +310,21 @@ public class SafeFetcher {
         }
     }
 
-    /** Collects a body, cancelling once it passes {@code maxBytes}. */
+    /**
+     * Collects a body up to {@code maxBytes}, then cancels the stream. With {@code truncate}
+     * the first {@code maxBytes} are returned; otherwise the body fails. The result completes
+     * before the cancel, so the stream reset that follows can't turn it into an error.
+     */
     private static final class CappedBody implements HttpResponse.BodySubscriber<byte[]> {
         private final int maxBytes;
+        private final boolean truncate;
         private final ByteArrayOutputStream out = new ByteArrayOutputStream();
         private final CompletableFuture<byte[]> result = new CompletableFuture<>();
         private Flow.Subscription subscription;
 
-        CappedBody(int maxBytes) {
+        CappedBody(int maxBytes, boolean truncate) {
             this.maxBytes = maxBytes;
+            this.truncate = truncate;
         }
 
         @Override
@@ -335,8 +345,15 @@ public class SafeFetcher {
             }
             for (ByteBuffer item : items) {
                 if (out.size() + item.remaining() > maxBytes) {
+                    if (truncate) {
+                        byte[] head = new byte[maxBytes - out.size()];
+                        item.get(head);
+                        out.writeBytes(head);
+                        result.complete(out.toByteArray());
+                    } else {
+                        result.completeExceptionally(new IllegalStateException("body over " + maxBytes + " bytes"));
+                    }
                     subscription.cancel();
-                    result.completeExceptionally(new IllegalStateException("body over " + maxBytes + " bytes"));
                     return;
                 }
                 byte[] chunk = new byte[item.remaining()];

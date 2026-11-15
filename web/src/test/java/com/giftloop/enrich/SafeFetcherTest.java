@@ -42,7 +42,12 @@ class SafeFetcherTest {
             ex.getResponseHeaders().add("Location", "/loop");
             respond(ex, 302, "text/plain", new byte[0]);
         });
-        server.createContext("/big", ex -> respond(ex, 200, "text/html", new byte[SafeFetcher.Kind.HTML.maxBytes() + 10]));
+        server.createContext("/big", ex -> {
+            byte[] page = new byte[SafeFetcher.Kind.HTML.maxBytes() + 500_000];
+            java.util.Arrays.fill(page, (byte) 'a');
+            respond(ex, 200, "text/html", page);
+        });
+        server.createContext("/big.png", ex -> respond(ex, 200, "image/png", new byte[SafeFetcher.Kind.IMAGE.maxBytes() + 10]));
         server.createContext("/json", ex -> respond(ex, 200, "application/json", "{}".getBytes()));
         server.createContext("/missing", ex -> respond(ex, 404, "text/html", "no".getBytes()));
         server.start();
@@ -105,10 +110,17 @@ class SafeFetcherTest {
         assertThrows(SafeFetcher.FetchException.class, () -> local.fetch(URI.create(base + "/loop"), SafeFetcher.Kind.HTML));
     }
 
-    /** Oversized bodies, wrong content types and error statuses fail. */
+    /** Oversized pages are cut at the cap (details sit near the top), not failed. */
+    @Test
+    void truncatesLargePages() throws Exception {
+        SafeFetcher.Fetched page = local.fetch(URI.create(base + "/big"), SafeFetcher.Kind.HTML);
+        assertEquals(SafeFetcher.Kind.HTML.maxBytes(), page.body().length);
+    }
+
+    /** Oversized images, wrong content types and error statuses fail. */
     @Test
     void enforcesLimits() {
-        assertThrows(SafeFetcher.FetchException.class, () -> local.fetch(URI.create(base + "/big"), SafeFetcher.Kind.HTML));
+        assertThrows(SafeFetcher.FetchException.class, () -> local.fetch(URI.create(base + "/big.png"), SafeFetcher.Kind.IMAGE));
         assertThrows(SafeFetcher.FetchException.class, () -> local.fetch(URI.create(base + "/json"), SafeFetcher.Kind.HTML));
         assertThrows(SafeFetcher.FetchException.class, () -> local.fetch(URI.create(base + "/page"), SafeFetcher.Kind.IMAGE));
         assertThrows(SafeFetcher.FetchException.class, () -> local.fetch(URI.create(base + "/missing"), SafeFetcher.Kind.HTML));

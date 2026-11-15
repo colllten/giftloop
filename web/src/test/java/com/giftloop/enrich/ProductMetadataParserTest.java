@@ -69,6 +69,25 @@ class ProductMetadataParserTest {
         assertEquals(URI.create("https://games.example/bg.png"), p.imageUrl());
     }
 
+    /** Amazon publishes no OpenGraph/JSON-LD: its own title, price box and main image are used. */
+    @Test
+    void readsAmazonMarkup() throws Exception {
+        LinkPreview p = parse("amazon.html", "https://www.amazon.com/dp/B000TEST?th=1");
+        assertEquals("Desk Lamp, Brass Finish", p.title());
+        assertEquals(new BigDecimal("1049.00"), p.price());
+        assertEquals(URI.create("https://m.media.example/I/lamp._SL1000_.jpg"), p.imageUrl());
+    }
+
+    /** Other Amazon stores keep title and image but not the price (format and currency differ). */
+    @Test
+    void amazonPriceOnlyOnAmazonCom() throws Exception {
+        LinkPreview p = parse("amazon.html", "https://www.amazon.de/dp/B000TEST");
+        assertEquals("Desk Lamp, Brass Finish", p.title());
+        assertNull(p.price());
+        assertEquals(URI.create("https://m.media.example/I/lamp._SL1000_.jpg"), p.imageUrl());
+        assertNull(parse("amazon.html", "https://shop.example/x").price(), "Amazon selectors only on Amazon");
+    }
+
     /** A page with nothing useful is empty. */
     @Test
     void emptyPage() {

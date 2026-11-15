@@ -57,8 +57,8 @@ Quarkus fetches user-supplied URLs, so `SafeFetcher` restricts them:
   public (no loopback, private, link-local/metadata, CGNAT, multicast, ULA,
   NAT64 or mapped private IPv4).
 - Redirects followed by hand (max 3), each hop re-checked. One 6 s deadline
-  covers headers and body; bodies are capped (1.5 MB HTML, 5 MB images) and
-  only read for a 200 of the expected type.
+  covers headers and body; pages are truncated at 1.5 MB, images over 5 MB
+  are refused, and bodies are only read for a 200 of the expected type.
 - 20 previews per user per minute (in memory, per instance).
 - Residual risk: DNS rebinding. The JDK client resolves the host again after
   the check, so a hostile DNS server could answer a private address the second

@@ -10,13 +10,15 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
  * Reads product details from page HTML. Sources, best first: JSON-LD {@code Product},
  * OpenGraph (and {@code product:price:*}), Twitter cards, schema.org microdata
- * ({@code itemprop}), then {@code <title>}. Each field takes the first source that has it.
+ * ({@code itemprop}), Amazon's own markup (it publishes none of the above), then
+ * {@code <title>}. Each field takes the first source that has it.
  *
  * <p>Prices are kept only in USD (or when no currency is given), since gifts store a bare
  * amount: a wrong currency is worse than a blank.
@@ -32,6 +34,16 @@ public final class ProductMetadataParser {
     private static final Pattern AMAZON_PREFIX = Pattern.compile("^Amazon\\.[a-z.]+\\s*:\\s*", Pattern.CASE_INSENSITIVE);
     private static final Pattern AMAZON_SUFFIX = Pattern.compile("\\s*:\\s*[^:]*Amazon\\.[a-z.]+\\s*$", Pattern.CASE_INSENSITIVE);
     private static final Pattern SEPARATORS = Pattern.compile("\\s+[|\\-–—:]\\s+");
+    /** Amazon price boxes, best first; each holds the price in an {@code .a-offscreen} span. */
+    private static final List<String> AMAZON_PRICES = List.of(
+            "#corePrice_feature_div .a-offscreen",
+            "#corePriceDisplay_desktop_feature_div .a-price .a-offscreen",
+            "#apex_offerDisplay_desktop .a-offscreen",
+            "#tp_price_block_total_price_ww .a-offscreen",
+            "#priceblock_dealprice",
+            "#priceblock_ourprice");
+    /** A plain dollar amount ("$52.99", "$1,049.00"). */
+    private static final Pattern DOLLARS = Pattern.compile("^\\$\\s?[0-9][0-9,]*(\\.[0-9]{2})?$");
 
     private ProductMetadataParser() {
     }
@@ -53,6 +65,7 @@ public final class ProductMetadataParser {
                 meta(doc, "og:title"),
                 meta(doc, "twitter:title"),
                 itemprop(doc, "name"),
+                amazon(page) ? text(doc, "#productTitle") : null,
                 doc.title());
 
         String currency = first(
@@ -64,7 +77,8 @@ public final class ProductMetadataParser {
                 product == null ? null : offerPrice(offer(product)),
                 meta(doc, "product:price:amount"),
                 meta(doc, "og:price:amount"),
-                itemprop(doc, "price"));
+                itemprop(doc, "price"),
+                amazonUsPrice(doc, page));
 
         String image = first(
                 product == null ? null : image(product.get("image")),
@@ -72,7 +86,8 @@ public final class ProductMetadataParser {
                 meta(doc, "og:image"),
                 meta(doc, "twitter:image"),
                 meta(doc, "twitter:image:src"),
-                itempropImage(doc));
+                itempropImage(doc),
+                amazon(page) ? amazonImage(doc) : null);
 
         return new LinkPreview(cleanTitle(title, siteName, page), price(rawPrice, currency),
                 absolute(image, page), canonical(doc, page));
@@ -199,6 +214,42 @@ public final class ProductMetadataParser {
             return null;
         }
         return first(blankToNull(el.attr("content")), blankToNull(el.attr("src")), blankToNull(el.attr("href")));
+    }
+
+    // ------------------------------------------------------------------ Amazon
+
+    /** Any Amazon store (amazon.com, amazon.co.uk, smile.amazon.de, ...). */
+    private static boolean amazon(URI page) {
+        String host = page.getHost() == null ? "" : page.getHost().toLowerCase(Locale.ROOT);
+        return host.matches("(.+\\.)?amazon\\.[a-z.]+");
+    }
+
+    /** Price from amazon.com only, and only a plain dollar amount (other stores' formats differ). */
+    private static String amazonUsPrice(Document doc, URI page) {
+        String host = page.getHost() == null ? "" : page.getHost().toLowerCase(Locale.ROOT);
+        if (!host.equals("amazon.com") && !host.endsWith(".amazon.com")) {
+            return null;
+        }
+        for (String selector : AMAZON_PRICES) {
+            for (Element el : doc.select(selector)) {
+                String price = el.text().strip();
+                if (DOLLARS.matcher(price).matches()) {
+                    return price;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Main product photo: the large version if offered, else the displayed one. */
+    private static String amazonImage(Document doc) {
+        Element img = doc.selectFirst("#landingImage, #imgBlkFront");
+        return img == null ? null : first(blankToNull(img.attr("data-old-hires")), blankToNull(img.attr("src")));
+    }
+
+    private static String text(Document doc, String selector) {
+        Element el = doc.selectFirst(selector);
+        return el == null ? null : blankToNull(el.text());
     }
 
     /** rel=canonical (or og:url) when it stays on the fetched host; otherwise the fetched URL. */
