@@ -103,6 +103,56 @@ sequenceDiagram
   end
 ```
 
+### Gift photos and link auto-fill
+Packages: `com.giftloop.enrich` (`SafeFetcher`, `ProductMetadataParser`,
+`LinkPreviewService`), `com.giftloop.image.Images`, `wishlist.GiftImageService`.
+See [ADR 004](decisions/004-self-hosted-link-previews.md).
+
+- The gift form is multipart. A chosen photo is normalized (≤640px JPEG) on
+  arrival and kept in the form as base64 `image_data`, so failed saves and
+  auto-fills don't lose it; it is re-validated on save.
+- Auto-fill only fills empty fields and never saves.
+- Photos are stored after the gift row commits (Storage can't join the DB
+  transaction). A Storage failure keeps the gift and says so in the notice.
+- Replaced/deleted files are queued by a trigger (`GiftImageOrphan`) and swept
+  after gift writes, wishlist removal and account deletion.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser (HTMX)
+  participant Q as Quarkus
+  participant R as Retailer site
+  participant P as Postgres
+  participant S as Supabase Storage
+  B->>Q: paste link → POST /wishlists/{id}/gifts/autofill (whole form)
+  Q->>Q: rate limit (20/min/user)
+  Q->>R: GET page (SafeFetcher: resolve once, public IPs only, ≤3 checked redirects, 6 s, 1.5 MB)
+  Q->>Q: parse JSON-LD / OpenGraph / microdata
+  Q->>R: GET product image (≤5 MB)
+  Q->>Q: Images.fit → JPEG, base64 into form
+  Q-->>B: form with empty fields filled + photo preview
+  B->>Q: POST /wishlists/{id}/gifts (fields + image_data or photo file)
+  Q->>P: insert Gift (+ viewers), COMMIT
+  Q->>S: upload <owner>/<gift>/<random>.jpg (caller's JWT, Storage RLS)
+  Q->>P: update Gift.image_path (old path queued by trigger)
+  Q->>P: take_gift_image_orphans()
+  Q->>S: delete queued files
+  Q-->>B: body + HX-Retarget #wishlist-body
+```
+
+Photos are served by `GET /gift-images/{owner}/{gift}/{file}` after Storage
+RLS (which follows Gift RLS) allows the read; file names are random per upload,
+so responses are cached as immutable.
+
+### Copy and share
+- "Add from a past list" copies the caller's live gifts from their other live
+  wishlists in one transaction (shared with everyone, duplicate names skipped),
+  then copies photos with Storage's server-side copy.
+- `/add?url|text|title` (web manifest `share_target` and the bookmarklet) finds
+  the first web address and opens the caller's open wishlist (event not ended)
+  at `?add=<link>#add-gift`, which renders the add form already auto-filled.
+  Several open wishlists → picker.
+
 ## Claims
 `com.giftloop.claim`: `ClaimPageResource` (HTML: `/claims` and claim actions
 under `/wishlists/{w}/gifts/{g}/claims`), `ClaimResource` (`GET /api/claims`),
@@ -246,6 +296,9 @@ sequenceDiagram
 ```
 
 # Third-party Integrations
+Link auto-fill fetches retailer pages and images directly from Quarkus
+(no third-party preview API; see ADR 004).
+
 The app will need to utilize other authentication methods, or integrate with
 Supabase's integrations with Apple, Google, etc.
 

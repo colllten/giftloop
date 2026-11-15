@@ -1,7 +1,25 @@
-{! Add/edit gift form. Param: form (GiftFormView). Swaps itself on errors; on
-   success the server re-targets #wishlist-body. !}
-<form class="gift-form" hx-post="{form.action}" hx-target="this" hx-swap="outerHTML">
+{! Add/edit gift form. Param: form (GiftFormView). Swaps itself on errors and
+   after auto-fill; on success the server re-targets #wishlist-body. Multipart so
+   a photo can ride along. The link field auto-fills on paste; its button (and
+   Enter, see app.js) does the same for typed links. Neither saves. !}
+<form class="gift-form" hx-post="{form.action}" hx-target="this" hx-swap="outerHTML" enctype="multipart/form-data">
   {#csrf /}
+  <div class="field autofill">
+    <label for="{form.key}-source">Paste a link <span class="hint">Optional. We'll fill in what we can; you can change anything.</span></label>
+    <div class="autofill-row">
+      <input id="{form.key}-source" name="source_url" type="text" inputmode="url" autocomplete="off"
+             placeholder="https://" data-autofill-field
+             hx-post="{form.autofillAction}" hx-trigger="paste delay:50ms" hx-target="closest form" hx-swap="outerHTML"
+             hx-indicator="#{form.key}-autofill-status"
+             {#if form.error('source')}aria-invalid="true" aria-describedby="{form.key}-source-error"{/if}>
+      <button type="button" data-autofill-button
+              hx-post="{form.autofillAction}" hx-target="closest form" hx-swap="outerHTML"
+              hx-indicator="#{form.key}-autofill-status">Auto-fill</button>
+    </div>
+    <p id="{form.key}-autofill-status" class="hint htmx-indicator autofill-status" aria-live="polite">Looking up that link…</p>
+    {#if form.error('source')}<p id="{form.key}-source-error" class="error" role="alert">{form.error('source')}</p>{/if}
+    {#if form.notice}<p class="autofill-notice" role="status">{form.notice}</p>{/if}
+  </div>
   <div class="field">
     <label for="{form.key}-name">Gift</label>
     <input id="{form.key}-name" name="name" type="text" maxlength="200" required value="{form.form.name ?: ''}"
@@ -33,6 +51,17 @@
     <textarea id="{form.key}-notes" name="notes" rows="2" maxlength="1000"
               {#if form.error('notes')}aria-invalid="true" aria-describedby="{form.key}-notes-error"{/if}>{form.form.notes ?: ''}</textarea>
     {#if form.error('notes')}<p id="{form.key}-notes-error" class="error" role="alert">{form.error('notes')}</p>{/if}
+  </div>
+  <div class="field gift-photo-field">
+    {#if form.previewImageSrc}<img class="gift-photo gift-photo-preview" src="{form.previewImageSrc}" alt="Photo of this gift">{/if}
+    {#if form.form.imageData}<input type="hidden" name="image_data" value="{form.form.imageData}">{/if}
+    <label for="{form.key}-photo">{#if form.previewImageSrc}Replace photo{#else}Photo{/if} <span class="hint">Optional. JPEG, PNG or WebP, up to 5 MB.</span></label>
+    <input id="{form.key}-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp"
+           {#if form.error('photo')}aria-invalid="true" aria-describedby="{form.key}-photo-error"{/if}>
+    {#if form.currentImageUrl || form.form.imageData}
+    <label class="choice"><input type="checkbox" name="remove_image" value="true"{#if form.form.removeImage} checked{/if}> Remove photo</label>
+    {/if}
+    {#if form.error('photo')}<p id="{form.key}-photo-error" class="error" role="alert">{form.error('photo')}</p>{/if}
   </div>
   <fieldset class="field visibility"{#if form.error('viewers')} aria-describedby="{form.key}-viewers-error"{/if}>
     <legend>Who can see this gift?</legend>

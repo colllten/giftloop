@@ -1,8 +1,12 @@
 package com.giftloop.wishlist;
 
+import com.giftloop.enrich.LinkPreview;
+
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,9 +30,12 @@ import java.util.stream.Collectors;
  * @param notes      trimmed notes, or null if blank
  * @param visibility {@link #EVERYONE} or {@link #SELECTED}
  * @param viewers    raw user ids of the selected people
+ * @param imageData  staged photo as base64 JPEG (from auto-fill, or an upload kept across a failed
+ *                   save), or null; re-validated before it is stored
+ * @param removeImage owner asked to remove the current photo
  */
 public record GiftForm(String name, String price, String quantity, String links, String notes,
-                       String visibility, List<String> viewers) {
+                       String visibility, List<String> viewers, String imageData, boolean removeImage) {
 
     /** Visibility value: every group member. */
     public static final String EVERYONE = "everyone";
@@ -43,6 +50,8 @@ public record GiftForm(String name, String price, String quantity, String links,
     static final int QUANTITY_MAX = 999;
     /** Largest {@code numeric(10, 2)} value. */
     static final BigDecimal PRICE_MAX = new BigDecimal("99999999.99");
+    /** Largest staged photo (base64 text); normalized photos are far smaller. */
+    static final int IMAGE_DATA_MAX = 2 * 1024 * 1024;
     /** Starts with a URI scheme, e.g. {@code mailto:}; a colon followed by a digit is a port instead. */
     private static final Pattern HAS_SCHEME = Pattern.compile("^[A-Za-z][A-Za-z0-9+.-]*:(?!\\d)");
 
@@ -63,7 +72,79 @@ public record GiftForm(String name, String price, String quantity, String links,
         return new GiftForm(blankToNull(name), blankToNull(price), blankToNull(quantity), blankToNull(links),
                 blankToNull(notes), SELECTED.equals(visibility) ? SELECTED : EVERYONE,
                 viewers == null ? List.of() : viewers.stream().filter(v -> v != null && !v.isBlank())
-                        .map(String::strip).toList());
+                        .map(String::strip).toList(), null, false);
+    }
+
+    /**
+     * Same form with photo fields from the request.
+     *
+     * @param imageData   staged base64 JPEG, or blank
+     * @param removeImage whether "Remove photo" was ticked
+     * @return form
+     */
+    public GiftForm withPhoto(String imageData, boolean removeImage) {
+        return new GiftForm(name, price, quantity, links, notes, visibility, viewers, blankToNull(imageData),
+                removeImage);
+    }
+
+    /**
+     * Same form with a newly staged photo (replaces any earlier one and cancels removal).
+     *
+     * @param jpeg normalized JPEG bytes
+     * @return form
+     */
+    public GiftForm withImage(byte[] jpeg) {
+        return withPhoto(Base64.getEncoder().encodeToString(jpeg), false);
+    }
+
+    /**
+     * Fills empty fields from a link preview, never overwriting what the owner typed: name and price
+     * when blank, the link appended when not already listed (and there is room), the photo when the
+     * gift has none and none is staged. The pasted link is used as is (tidied).
+     *
+     * @param preview         details read from the page (may be null)
+     * @param link            the link the owner pasted (already a valid web link)
+     * @param image           normalized photo, or null
+     * @param hasCurrentImage the gift being edited already has a photo it keeps
+     * @return filled form
+     */
+    public GiftForm autofill(LinkPreview preview, String link, byte[] image, boolean hasCurrentImage) {
+        String newName = name;
+        String newPrice = price;
+        if (preview != null && newName == null && preview.title() != null) {
+            newName = preview.title();
+        }
+        if (preview != null && newPrice == null && preview.price() != null) {
+            newPrice = preview.price().toPlainString();
+        }
+        // The pasted link (tidied), not the page's canonical URL: stores may canonicalize to a
+        // different variant than the one the owner was looking at.
+        String chosen = Links.tidy(link);
+        List<String> current = new ArrayList<>(linkList());
+        boolean listed = current.contains(chosen);
+        if (!listed && current.size() < LINKS_MAX && isWebLink(chosen)) {
+            current.add(chosen);
+        }
+        GiftForm filled = new GiftForm(newName, newPrice, quantity, current.isEmpty() ? null : String.join("\n", current),
+                notes, visibility, viewers, imageData, removeImage);
+        boolean hasImage = imageData != null || (hasCurrentImage && !removeImage);
+        return image != null && !hasImage ? filled.withImage(image) : filled;
+    }
+
+    /**
+     * Decoded staged photo.
+     *
+     * @return bytes, or null if none or not valid base64
+     */
+    public byte[] imageBytes() {
+        if (imageData == null || imageData.length() > IMAGE_DATA_MAX) {
+            return null;
+        }
+        try {
+            return Base64.getDecoder().decode(imageData);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /**
@@ -72,7 +153,7 @@ public record GiftForm(String name, String price, String quantity, String links,
      * @return form
      */
     public static GiftForm empty() {
-        return new GiftForm(null, null, "1", null, null, EVERYONE, List.of());
+        return new GiftForm(null, null, "1", null, null, EVERYONE, List.of(), null, false);
     }
 
     /**
@@ -85,7 +166,7 @@ public record GiftForm(String name, String price, String quantity, String links,
         return new GiftForm(gift.name(), gift.price() == null ? null : gift.price().toPlainString(),
                 Integer.toString(gift.quantity()), gift.links().isEmpty() ? null : String.join("\n", gift.links()),
                 gift.notes(), gift.visibleToAll() ? EVERYONE : SELECTED,
-                gift.viewerIds().stream().map(UUID::toString).toList());
+                gift.viewerIds().stream().map(UUID::toString).toList(), null, false);
     }
 
     /**
@@ -119,6 +200,9 @@ public record GiftForm(String name, String price, String quantity, String links,
         if (notes != null && notes.length() > NOTES_MAX) {
             errors.put("notes", "Please use " + NOTES_MAX + " characters or fewer.");
         }
+        if (imageData != null && imageBytes() == null) {
+            errors.put("photo", "Please choose the photo again.");
+        }
         if (!visibleToAll()) {
             if (viewers.isEmpty()) {
                 errors.put("viewers", "Pick at least one person, or share with everyone.");
@@ -149,13 +233,15 @@ public record GiftForm(String name, String price, String quantity, String links,
     }
 
     /**
-     * Non-blank links, one per line, in order, with {@code https://} added where no scheme was typed.
+     * Non-blank links, one per line, in order, with {@code https://} added where no scheme was typed
+     * and tracking parameters removed ({@link Links#tidy}).
      *
      * @return links (possibly empty)
      */
     public List<String> linkList() {
         return links == null ? List.of()
-                : links.lines().map(String::strip).filter(l -> !l.isEmpty()).map(GiftForm::withScheme).toList();
+                : links.lines().map(String::strip).filter(l -> !l.isEmpty()).map(GiftForm::withScheme)
+                        .map(Links::tidy).toList();
     }
 
     /**
@@ -165,7 +251,7 @@ public record GiftForm(String name, String price, String quantity, String links,
      * @param link stripped link
      * @return link with a scheme
      */
-    static String withScheme(String link) {
+    public static String withScheme(String link) {
         if (link.startsWith("//")) {
             return "https:" + link;
         }
@@ -228,7 +314,7 @@ public record GiftForm(String name, String price, String quantity, String links,
     }
 
     /** Absolute http(s) URL with a dotted host (rules out typos like "socks"), short enough to store. */
-    static boolean isWebLink(String link) {
+    public static boolean isWebLink(String link) {
         if (link.length() > LINK_LENGTH_MAX) {
             return false;
         }

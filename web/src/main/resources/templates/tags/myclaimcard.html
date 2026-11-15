@@ -14,7 +14,7 @@
   {#if !c.links.isEmpty}
   <ul class="gift-links">
     {#for link in c.links}
-    <li><a href="{link}" rel="noopener noreferrer" target="_blank">{link}</a></li>
+    <li><a href="{link}" rel="noopener noreferrer" target="_blank" title="{link}">{link.linkLabel}</a></li>
     {/for}
   </ul>
   {/if}

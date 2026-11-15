@@ -1,0 +1,28 @@
+{! "Add from a past list" picker. Param: view (PastGiftsView). Replaces
+   #past-gifts; on success the server re-targets #wishlist-body. !}
+<form class="past-gifts" id="past-gifts" hx-post="/wishlists/{view.wishlistId}/gifts/copy" hx-target="this" hx-swap="outerHTML">
+  {#csrf /}
+  <h3>Add from a past list</h3>
+  {#for event in view.events}
+  <fieldset class="field">
+    <legend>{event.name}</legend>
+    {#for g in event.gifts}
+    <label class="choice past-gift">
+      <input type="checkbox" name="gift" value="{g.id}">
+      {#if g.imageUrl}<img class="gift-photo gift-photo-sm" src="{g.imageUrl}" alt="" width="40" height="40" loading="lazy">{/if}
+      <span>{g.name}{#if g.priceLabel} <span class="hint">{g.priceLabel}</span>{/if}</span>
+    </label>
+    {/for}
+  </fieldset>
+  {#else}
+  <p class="hint">Nothing to copy yet. Gifts from your other wishlists show up here.</p>
+  {/for}
+  {#if view.error}<p class="error" role="alert">{view.error}</p>{/if}
+  {#if !view.events.isEmpty}
+  <p class="hint">Copies are shared with everyone in this group. You can change that after.</p>
+  <p class="row">
+    <button type="submit">Copy selected</button>
+    <a class="button" href="/wishlists/{view.wishlistId}">Cancel</a>
+  </p>
+  {/if}
+</form>

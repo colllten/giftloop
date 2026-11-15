@@ -302,6 +302,31 @@ details form { margin-top: var(--space-4); }
 .gift-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
 .gift-actions form { margin: 0; }
 .gift > .gift-form { margin-top: 0; }
+/* Photo sits beside the gift details; decorative (alt=""), the name carries meaning. */
+.gift-summary { display: flex; align-items: flex-start; gap: var(--space-3); }
+.gift-body { flex: 1; min-width: 0; }
+.gift-photo {
+  flex: none; width: 5rem; height: 5rem; object-fit: contain;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius);
+}
+.gift-photo.gift-photo-preview { display: block; width: 8rem; height: 8rem; margin-bottom: var(--space-2); }
+.gift-photo-field .choice { margin-top: var(--space-2); }
+/* Paste-a-link auto-fill: field and button share a row; status shows while the request runs. */
+.autofill { padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-border); }
+.autofill-row { display: flex; gap: var(--space-2); }
+.autofill-row input { flex: 1; min-width: 0; }
+.autofill-row button { flex: none; }
+.autofill .htmx-indicator { margin: var(--space-2) 0 0; }
+/* htmx only hides indicators (opacity); collapse the status line until a request runs. */
+.autofill-status:not(.htmx-request) { display: none; }
+.past-gifts { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--color-border); }
+.past-gifts h3 { margin-top: 0; }
+.past-gift { align-items: center; }
+.gift-photo.gift-photo-sm { width: 2.5rem; height: 2.5rem; }
+.share-choices { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.share-choices .button { width: 100%; justify-content: space-between; }
+.shared-link { overflow-wrap: anywhere; }
+.autofill-notice { margin: var(--space-2) 0 0; font-size: var(--text-sm); color: var(--color-text-muted); }
 /* Member checkboxes only matter when "Only people I pick" is chosen. */
 .viewer-picker { margin-left: var(--space-3); padding-left: var(--space-4); border-left: 2px solid var(--color-border); }
 .visibility:not(:has(input[value="selected"]:checked)) .viewer-picker { display: none; }
@@ -362,6 +387,7 @@ details form { margin-top: var(--space-4); }
   .page-wide .row { justify-content: flex-start; }
   .page-wide .row > * { flex: none; }
   .page-wide .gift-form .row > * { flex: 1; }
+  .gift-photo { width: 6rem; height: 6rem; }
 
   /* Group page: members on the left, invite and settings in a side column. */
   .group-layout {

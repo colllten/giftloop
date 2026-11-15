@@ -29,3 +29,11 @@ document.addEventListener("keydown", (event) => {
   menu.open = false;
   menu.querySelector("summary").focus();
 });
+
+// Enter in a gift form's "Paste a link" field runs auto-fill instead of
+// submitting the whole form.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || !event.target.matches("[data-autofill-field]")) return;
+  event.preventDefault();
+  event.target.closest(".autofill").querySelector("[data-autofill-button]").click();
+});

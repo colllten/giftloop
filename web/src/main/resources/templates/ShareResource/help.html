@@ -1,0 +1,19 @@
+{#include base}
+{#title}Add gifts from any site · GiftLoop{/title}
+{#header}{#appheader nav=true current='profile' /}{/header}
+{#main}
+<h1>Add gifts from any site</h1>
+{#if noLink}<p class="error" role="alert">We couldn't find a link in what was shared. Try sharing the product page itself.</p>{/if}
+<p>Found something you'd love? Send it straight to your wishlist. We'll fill in the name, price and photo, and you check them before adding.</p>
+
+<h2>On a computer</h2>
+<p>Drag this button to your bookmarks bar. On a product page, click the bookmark.</p>
+<p><a class="button bookmarklet" href="{bookmarklet}">Add to GiftLoop</a></p>
+
+<h2>On Android</h2>
+<p>In Chrome, open the menu and choose <strong>Add to Home screen</strong> (or <strong>Install app</strong>). GiftLoop then shows up when you tap <strong>Share</strong> on a product page.</p>
+
+<h2>On iPhone or iPad</h2>
+<p>Safari can't share to web apps yet. Copy the product link, then paste it into <strong>Paste a link</strong> on your wishlist.</p>
+{/main}
+{/include}

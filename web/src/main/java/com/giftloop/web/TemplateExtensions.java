@@ -1,5 +1,6 @@
 package com.giftloop.web;
 
+import com.giftloop.wishlist.Links;
 import io.quarkus.qute.TemplateExtension;
 
 import java.net.URLEncoder;
@@ -22,5 +23,15 @@ public final class TemplateExtensions {
      */
     static String urlEncode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Short label for a shop link (its store host): {@code {link.linkLabel}}.
+     *
+     * @param link absolute link
+     * @return e.g. {@code target.com}
+     */
+    static String linkLabel(String link) {
+        return Links.label(link);
     }
 }

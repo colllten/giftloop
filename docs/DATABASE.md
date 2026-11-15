@@ -37,7 +37,8 @@ erDiagram
 | `JoinCodeFailure` | One row per unknown join code entered (`user_id`, `failed_at`); guesses aren't stored. RLS on, no policies, no grants: only `join_group_by_code` uses it. Rows older than the window are pruned on the user's next attempt. |
 | `Event` | `end_date` drives claim reveal. Null = never auto-reveal. |
 | `Wishlist` | One live wishlist per (`event_id`, `owner_id`) (partial unique index). Owner must be a group member. `removed_at` set = removed shell kept for claimed gifts. `owner_id` is null only on removed shells whose owner deleted their account. |
-| `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. `is_visible_to_all` (default true); when false, only `GiftViewer` rows can see it. `removed_at` set = owner removed it after it was claimed. |
+| `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. `is_visible_to_all` (default true); when false, only `GiftViewer` rows can see it. `removed_at` set = owner removed it after it was claimed. `image_path` = `<owner id>/<gift id>/<file>` in `gift-images` (check: second segment is the gift's own id). |
+| `GiftImageOrphan` | Gift photo files no gift points at (replaced, cleared or deleted). Filled by trigger; RLS on, no policies, no grants. Drained per owner by `take_gift_image_orphans()`. |
 | `GiftViewer` | (`gift_id`, `user_id`) allowlist for restricted gifts. Owner-only read/write. Viewer must be a group member, not the owner (`23514`). Rows are dropped when the member leaves the group. |
 | `Claim` | `quantity` units of a gift. Total claimed **may exceed** `Gift.quantity`. `purchased_quantity` (0..`quantity`) = units bought; set only via `private.set_claim_purchased`, by any participant. `created_by` is not readable via the API. |
 | `ClaimParticipant` | Creator auto-added and can't leave (release the claim instead). Any participant can be `is_anonymous`. `joined_at` orders who inherits the claim. |
@@ -51,6 +52,17 @@ erDiagram
   own folder; owners and co-members can read (`storage.objects` policies).
 - With `search_path = ''`, compare citext with `operator(extensions.=)`; a bare
   `=` silently falls back to case-sensitive text equality.
+
+## Gift Images
+- `gift-images` bucket: private, 1 MB, JPEG (the app re-encodes everything).
+- Read: anyone who can read the gift row (policy subquery runs under the
+  caller's Gift RLS), so claimers keep a removed gift's photo.
+- Upload/update: own folder and `is_gift_owner(gift)`. Delete: own folder only,
+  so files can go after the row is gone.
+- Cleanup: the `queue_gift_image_orphan` trigger queues the old path whenever
+  `image_path` changes or a gift row is deleted (including claim-release
+  purges). After gift writes the app calls `private.take_gift_image_orphans()`
+  and deletes the returned files through Storage as the owner.
 
 ## Group Membership
 Functions in `private` (security definer, callable by `authenticated`):
@@ -132,3 +144,5 @@ deletion, including Studio and the Admin API:
 ## Known Gaps
 - An admin who is also a wishlist owner can flip the reveal flag.
 - Deleting an event or group still cascades its claims (everyone sees it go).
+- Gift photos of a deleted account's removed shells orphan once purged (queue
+  rows for an owner who can no longer drain them).
