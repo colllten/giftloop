@@ -44,7 +44,7 @@ class AvatarFlowTest {
         carol.get("/profile").then().statusCode(200);
 
         carol.htmxMultipart("/profile", carolFields(), "hello".getBytes(), "text/plain")
-                .then().body(containsString("Please choose a JPEG or PNG photo."));
+                .then().body(containsString("Please choose a JPEG, PNG or WebP photo."));
 
         carol.htmxMultipart("/profile", carolFields(), png(600, 400), "image/png")
                 .then().body(containsString("Your profile is saved."));

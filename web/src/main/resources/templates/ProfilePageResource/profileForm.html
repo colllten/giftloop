@@ -49,11 +49,11 @@
   </fieldset>
 
   <div class="field">
-    <label for="avatar">Photo <span class="hint">Optional. JPEG or PNG, up to 2 MB. Only people in your groups can see it.</span></label>
+    <label for="avatar">Photo <span class="hint">Optional. JPEG, PNG or WebP, up to 2 MB. Only people in your groups can see it.</span></label>
     {#if view.profile.avatarUrl}
     <img class="avatar" src="{view.profile.avatarUrl}" alt="Your current photo" width="96" height="96">
     {/if}
-    <input id="avatar" name="avatar" type="file" accept="image/jpeg,image/png"
+    <input id="avatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp"
            {#if view.error('avatar')}aria-invalid="true" aria-describedby="avatar-error"{/if}>
     {#if view.error('avatar')}<p id="avatar-error" class="error" role="alert">{view.error('avatar')}</p>{/if}
   </div>
