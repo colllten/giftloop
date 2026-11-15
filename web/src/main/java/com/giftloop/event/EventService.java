@@ -24,7 +24,8 @@ import static com.giftloop.security.Sql.prepare;
 import static com.giftloop.security.Sql.sqlState;
 
 /**
- * Events in a group, as the calling user. RLS decides who may read and create them.
+ * Events in a group, as the calling user. RLS decides who may read, create, edit and delete them
+ * (any member creates; only the group owner/admin edits or deletes).
  *
  * <p>Deviation from layering: throws JAX-RS {@link ForbiddenException} directly (like
  * {@code GroupService}), since the only callers are HTTP resources.
@@ -104,7 +105,8 @@ public class EventService {
     public Optional<EventDetail> find(JsonWebToken jwt, UUID eventId) {
         return run(jwt, c -> {
             try (PreparedStatement s = prepare(c, """
-                    select e.name, e.end_date, e.group_id, g.name as group_name
+                    select e.name, e.end_date, e.group_id, g.name as group_name,
+                           private.is_group_admin(e.group_id) as can_manage
                     from "Event" e
                     join "Group" g on g.id = e.group_id
                     where e.id = ?""", eventId);
@@ -117,9 +119,55 @@ public class EventService {
                         .map(EventDetail.EventWishlist::id).findFirst().orElse(null);
                 return Optional.of(new EventDetail(eventId, r.getString("name"),
                         r.getObject("end_date", LocalDate.class), r.getObject("group_id", UUID.class),
-                        r.getString("group_name"), wishlists, mine));
+                        r.getString("group_name"), wishlists, mine, r.getBoolean("can_manage")));
             }
         });
+    }
+
+    /**
+     * Changes an event's name and end date (group owner/admin).
+     *
+     * @param jwt     caller's verified token
+     * @param eventId event id
+     * @param form    validated form
+     * @throws ForbiddenException if the event is missing or the caller may not edit it
+     */
+    public void update(JsonWebToken jwt, UUID eventId, EventForm form) {
+        LocalDate endDate = form.endDateValue();
+        int rows = run(jwt, c -> {
+            try (PreparedStatement s = prepare(c, "update \"Event\" set name = ?, end_date = ? where id = ?",
+                    form.name(), endDate == null ? null : Date.valueOf(endDate), eventId)) {
+                return s.executeUpdate();
+            }
+        });
+        if (rows == 0) {
+            LOG.warnf("User %s was not allowed to edit event %s", jwt.getSubject(), eventId);
+            throw new ForbiddenException();
+        }
+        LOG.infof("User %s edited event %s", jwt.getSubject(), eventId);
+    }
+
+    /**
+     * Deletes an event with its wishlists, gifts and claims (group owner/admin).
+     *
+     * @param jwt     caller's verified token
+     * @param eventId event id
+     * @return the group the event belonged to
+     * @throws ForbiddenException if the event is missing or the caller may not delete it
+     */
+    public UUID delete(JsonWebToken jwt, UUID eventId) {
+        Optional<UUID> groupId = run(jwt, c -> {
+            try (PreparedStatement s = prepare(c, "delete from \"Event\" where id = ? returning group_id", eventId);
+                 ResultSet r = s.executeQuery()) {
+                return r.next() ? Optional.of(r.getObject(1, UUID.class)) : Optional.<UUID>empty();
+            }
+        });
+        if (groupId.isEmpty()) {
+            LOG.warnf("User %s was not allowed to delete event %s", jwt.getSubject(), eventId);
+            throw new ForbiddenException();
+        }
+        LOG.infof("User %s deleted event %s in group %s", jwt.getSubject(), eventId, groupId.get());
+        return groupId.get();
     }
 
     /** Live wishlists of an event, the caller's first; gift counts only include live gifts RLS shows. */

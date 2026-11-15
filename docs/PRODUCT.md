@@ -27,6 +27,8 @@ Signed-in users land on **Your groups** (`/`), listing their groups with
 | See group and members | ✓ | ✓ | ✓ |
 | See / replace join code | ✓ | ✓ | |
 | Rename group | ✓ | ✓ | |
+| Create an event | ✓ | ✓ | ✓ |
+| Edit / delete an event | ✓ | ✓ | |
 | Remove someone | anyone else | members only | |
 | Make / remove admin | ✓ | | |
 | Make someone owner | ✓ (becomes admin) | | |

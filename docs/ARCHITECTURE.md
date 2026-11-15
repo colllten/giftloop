@@ -71,7 +71,7 @@ sequenceDiagram
 
 ## Events and Wishlists
 `com.giftloop.event`: `EventPageResource` (create from the group page, event
-page listing wishlists) and `EventService`. `com.giftloop.wishlist`:
+page listing wishlists, edit/delete for group owner/admin) and `EventService`. `com.giftloop.wishlist`:
 `WishlistPageResource` (HTML), `WishlistResource` (JSON reads),
 `WishlistService`. Gift forms swap themselves on validation errors; on success
 the server sends `HX-Retarget: #wishlist-body` with the refreshed body.
