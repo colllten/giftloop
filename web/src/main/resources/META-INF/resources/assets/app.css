@@ -317,6 +317,8 @@ details form { margin-top: var(--space-4); }
 .autofill-row input { flex: 1; min-width: 0; }
 .autofill-row button { flex: none; }
 .autofill .htmx-indicator { margin: var(--space-2) 0 0; }
+/* htmx only hides indicators (opacity); collapse the status line until a request runs. */
+.autofill-status:not(.htmx-request) { display: none; }
 .past-gifts { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--color-border); }
 .past-gifts h3 { margin-top: 0; }
 .past-gift { align-items: center; }

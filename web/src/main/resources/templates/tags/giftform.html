@@ -16,7 +16,7 @@
               hx-post="{form.autofillAction}" hx-target="closest form" hx-swap="outerHTML"
               hx-indicator="#{form.key}-autofill-status">Auto-fill</button>
     </div>
-    <p id="{form.key}-autofill-status" class="hint htmx-indicator" aria-live="polite">Looking up that link…</p>
+    <p id="{form.key}-autofill-status" class="hint htmx-indicator autofill-status" aria-live="polite">Looking up that link…</p>
     {#if form.error('source')}<p id="{form.key}-source-error" class="error" role="alert">{form.error('source')}</p>{/if}
     {#if form.notice}<p class="autofill-notice" role="status">{form.notice}</p>{/if}
   </div>

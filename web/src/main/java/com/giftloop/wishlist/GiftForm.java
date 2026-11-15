@@ -100,7 +100,7 @@ public record GiftForm(String name, String price, String quantity, String links,
     /**
      * Fills empty fields from a link preview, never overwriting what the owner typed: name and price
      * when blank, the link appended when not already listed (and there is room), the photo when the
-     * gift has none and none is staged.
+     * gift has none and none is staged. The pasted link is used as is (tidied).
      *
      * @param preview         details read from the page (may be null)
      * @param link            the link the owner pasted (already a valid web link)
@@ -117,9 +117,11 @@ public record GiftForm(String name, String price, String quantity, String links,
         if (preview != null && newPrice == null && preview.price() != null) {
             newPrice = preview.price().toPlainString();
         }
-        String chosen = Links.tidy(preview != null && preview.url() != null ? preview.url().toString() : link);
+        // The pasted link (tidied), not the page's canonical URL: stores may canonicalize to a
+        // different variant than the one the owner was looking at.
+        String chosen = Links.tidy(link);
         List<String> current = new ArrayList<>(linkList());
-        boolean listed = current.contains(chosen) || current.contains(Links.tidy(link));
+        boolean listed = current.contains(chosen);
         if (!listed && current.size() < LINKS_MAX && isWebLink(chosen)) {
             current.add(chosen);
         }

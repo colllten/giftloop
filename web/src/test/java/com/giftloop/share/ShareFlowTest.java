@@ -125,7 +125,7 @@ class ShareFlowTest {
     /** The web manifest declares the share target. */
     @Test
     void manifest() {
-        new BrowserSession().request().get("/assets/manifest.webmanifest").then().statusCode(200)
+        new BrowserSession().request().get("/assets/manifest.json").then().statusCode(200)
                 .body(containsString("\"share_target\""))
                 .body(containsString("\"action\": \"/add\""));
         new BrowserSession().request().get("/assets/icons/icon-192.png").then().statusCode(200)
