@@ -45,8 +45,26 @@ Enforced in Postgres with RLS using the caller's JWT. See
   are hidden from everyone not on the claim.
 - Avatars are private: served by Quarkus after Storage RLS confirms the viewer
   is the owner or a co-member. Uploads are re-encoded, dropping EXIF/GPS data.
+- Gift photos follow gift visibility: Storage RLS reads through Gift RLS, and
+  Quarkus serves files only after that check. All photos (uploads and fetched)
+  are re-encoded to JPEG; sources over 6000px a side are refused before decoding.
 - `anon` has no table access. The service role bypasses RLS and must not serve
   user requests.
+
+## Link Auto-fill (SSRF)
+Quarkus fetches user-supplied URLs, so `SafeFetcher` restricts them:
+- http/https on default ports, no user info; every resolved address must be
+  public (no loopback, private, link-local/metadata, CGNAT, multicast, ULA,
+  NAT64 or mapped private IPv4).
+- Redirects followed by hand (max 3), each hop re-checked. One 6 s deadline
+  covers headers and body; bodies are capped (1.5 MB HTML, 5 MB images) and
+  only read for a 200 of the expected type.
+- 20 previews per user per minute (in memory, per instance).
+- Residual risk: DNS rebinding. The JDK client resolves the host again after
+  the check, so a hostile DNS server could answer a private address the second
+  time. Mitigate at the network layer in production (deny egress to private
+  ranges/metadata from the app).
+- `giftloop.link-preview.allow-loopback` exists for tests only (`%test`).
 
 ## Local Development
 Local Supabase keys printed by `supabase start` are shared defaults. Never use
