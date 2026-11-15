@@ -42,6 +42,10 @@ public final class ProductMetadataParser {
             "#tp_price_block_total_price_ww .a-offscreen",
             "#priceblock_dealprice",
             "#priceblock_ourprice");
+    /** Installment/subscription amounts ("$31.09/month", "$5/mo", "per week"): not the item price. */
+    private static final Pattern PER_PERIOD = Pattern.compile(
+            "(/\\s*(mo|mos|month|wk|week|yr|year)\\b)|(\\bper\\s+(month|week|year)\\b)|(\\bmo\\.)",
+            Pattern.CASE_INSENSITIVE);
     /** A plain dollar amount ("$52.99", "$1,049.00"). */
     private static final Pattern DOLLARS = Pattern.compile("^\\$\\s?[0-9][0-9,]*(\\.[0-9]{2})?$");
 
@@ -73,12 +77,13 @@ public final class ProductMetadataParser {
                 meta(doc, "product:price:currency"),
                 meta(doc, "og:price:currency"),
                 itemprop(doc, "priceCurrency"));
-        String rawPrice = first(
+        BigDecimal price = firstPrice(currency,
                 product == null ? null : offerPrice(offer(product)),
                 meta(doc, "product:price:amount"),
                 meta(doc, "og:price:amount"),
                 itemprop(doc, "price"),
-                amazonUsPrice(doc, page));
+                amazonUsPrice(doc, page),
+                walmartPrice(doc, page));
 
         String image = first(
                 product == null ? null : image(product.get("image")),
@@ -89,7 +94,7 @@ public final class ProductMetadataParser {
                 itempropImage(doc),
                 amazon(page) ? amazonImage(doc) : null);
 
-        return new LinkPreview(cleanTitle(title, siteName, page), price(rawPrice, currency),
+        return new LinkPreview(cleanTitle(title, siteName, page), price,
                 absolute(image, page), canonical(doc, page));
     }
 
@@ -241,6 +246,30 @@ public final class ProductMetadataParser {
         return null;
     }
 
+    // ------------------------------------------------------------------ Walmart
+
+    /**
+     * Walmart's current price from its page data ({@code __NEXT_DATA__} →
+     * {@code product.priceInfo.currentPrice.price}); its microdata price is often a monthly plan.
+     * Null when absent (e.g. out of stock).
+     */
+    private static String walmartPrice(Document doc, URI page) {
+        String host = page.getHost() == null ? "" : page.getHost().toLowerCase(Locale.ROOT);
+        if (!host.equals("walmart.com") && !host.endsWith(".walmart.com")) {
+            return null;
+        }
+        Element script = doc.selectFirst("script#__NEXT_DATA__");
+        if (script == null) {
+            return null;
+        }
+        try {
+            JsonNode price = JSON.readTree(script.data()).at("/props/pageProps/initialData/data/product/priceInfo/currentPrice/price");
+            return price.isNumber() || price.isTextual() ? blankToNull(price.asText()) : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     /** Main product photo: the large version if offered, else the displayed one. */
     private static String amazonImage(Document doc) {
         Element img = doc.selectFirst("#landingImage, #imgBlkFront");
@@ -298,14 +327,16 @@ public final class ProductMetadataParser {
     }
 
     /**
-     * Parses a price, keeping it only for USD or an unknown currency.
+     * Parses a price, keeping it only for USD or an unknown currency, and never for per-period
+     * amounts ("$31.09/month"), which are installment plans rather than the item price.
      *
      * @param raw      price text ("$1,299.00", "24.99")
      * @param currency ISO code, or null
      * @return price with 2 decimals, or null
      */
     static BigDecimal price(String raw, String currency) {
-        if (raw == null || (currency != null && !"USD".equalsIgnoreCase(currency.strip()))) {
+        if (raw == null || (currency != null && !"USD".equalsIgnoreCase(currency.strip()))
+                || PER_PERIOD.matcher(raw).find()) {
             return null;
         }
         String cleaned = PRICE_CHARS.matcher(raw.replace(",", "")).replaceAll("");
@@ -315,6 +346,17 @@ public final class ProductMetadataParser {
         } catch (NumberFormatException | ArithmeticException e) {
             return null;
         }
+    }
+
+    /** First candidate that parses as a usable price (bad candidates fall through to the next). */
+    private static BigDecimal firstPrice(String currency, String... candidates) {
+        for (String raw : candidates) {
+            BigDecimal value = price(raw, currency);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private static URI absolute(String url, URI page) {

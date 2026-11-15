@@ -88,6 +88,16 @@ class ProductMetadataParserTest {
         assertNull(parse("amazon.html", "https://shop.example/x").price(), "Amazon selectors only on Amazon");
     }
 
+    /** Walmart: the monthly-plan microdata price is skipped for the page data's current price. */
+    @Test
+    void readsWalmartCurrentPrice() throws Exception {
+        LinkPreview p = parse("walmart.html", "https://www.walmart.com/ip/123");
+        assertEquals("Acme Phone 512GB", p.title());
+        assertEquals(new BigDecimal("1299.00"), p.price());
+        LinkPreview elsewhere = parse("walmart.html", "https://shop.example/ip/123");
+        assertNull(elsewhere.price(), "installment price never used; page data only read on Walmart");
+    }
+
     /** A page with nothing useful is empty. */
     @Test
     void emptyPage() {
@@ -114,5 +124,8 @@ class ProductMetadataParserTest {
         assertNull(ProductMetadataParser.price("0", "USD"));
         assertNull(ProductMetadataParser.price("12.99 - 19.99", "USD"));
         assertNull(ProductMetadataParser.price("999999999", "USD"));
+        assertNull(ProductMetadataParser.price("$31.09/month", null));
+        assertNull(ProductMetadataParser.price("$5 / mo", "USD"));
+        assertNull(ProductMetadataParser.price("$12 per week", null));
     }
 }
