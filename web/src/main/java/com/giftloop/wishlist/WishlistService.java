@@ -22,6 +22,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -232,6 +234,105 @@ public class WishlistService {
         call(jwt, "select private.remove_gift(?)", giftId);
         images.sweep(jwt);
         LOG.infof("User %s removed gift %s from wishlist %s", jwt.getSubject(), giftId, wishlistId);
+    }
+
+    /**
+     * The caller's live gifts on their other live wishlists, newest event first, leaving out names
+     * already on the target list.
+     *
+     * @param jwt        caller's verified token
+     * @param wishlistId target wishlist (excluded)
+     * @return view for the picker
+     */
+    public PastGiftsView pastGifts(JsonWebToken jwt, UUID wishlistId) {
+        List<PastGiftsView.Event> events = run(jwt, c -> {
+            Map<UUID, String> names = new LinkedHashMap<>();
+            Map<UUID, List<PastGiftsView.Item>> items = new HashMap<>();
+            try (PreparedStatement s = prepare(c, """
+                    select e.id as event_id, e.name as event_name, g.id, g.name, g.price, g.image_path
+                    from "Gift" g
+                    join "Wishlist" w on w.id = g.wishlist_id
+                    join "Event" e on e.id = w.event_id
+                    where w.owner_id = auth.uid() and w.id <> ? and w.removed_at is null and g.removed_at is null
+                      and not exists (select 1 from "Gift" t
+                                      where t.wishlist_id = ? and t.removed_at is null
+                                        and lower(t.name) = lower(g.name))
+                    order by e.end_date desc nulls last, e.created_at desc, g.created_at, g.id""",
+                    wishlistId, wishlistId);
+                 ResultSet r = s.executeQuery()) {
+                while (r.next()) {
+                    UUID eventId = r.getObject("event_id", UUID.class);
+                    names.putIfAbsent(eventId, r.getString("event_name"));
+                    items.computeIfAbsent(eventId, k -> new ArrayList<>()).add(new PastGiftsView.Item(
+                            r.getObject("id", UUID.class), r.getString("name"), r.getBigDecimal("price"),
+                            r.getString("image_path")));
+                }
+            }
+            return names.entrySet().stream()
+                    .map(e -> new PastGiftsView.Event(e.getValue(), items.get(e.getKey()))).toList();
+        });
+        return new PastGiftsView(wishlistId, events, null);
+    }
+
+    /**
+     * Copies some of the caller's gifts from their other wishlists onto this one (owner), in one
+     * transaction, then copies their photos. Copies are shared with everyone (viewer lists belong to
+     * the source group). Gifts that aren't the caller's, are removed, or whose name is already on
+     * this list are skipped.
+     *
+     * @param jwt        caller's verified token
+     * @param wishlistId target wishlist
+     * @param giftIds    source gift ids
+     * @return how many gifts were copied, and how many photos failed to copy
+     * @throws ForbiddenException if the caller does not own the target wishlist
+     */
+    public CopyResult copyGifts(JsonWebToken jwt, UUID wishlistId, List<UUID> giftIds) {
+        record Copied(UUID id, String imagePath) {
+        }
+        List<Copied> copied = run(jwt, c -> {
+            List<Copied> out = new ArrayList<>();
+            try (PreparedStatement s = c.prepareStatement("""
+                    insert into "Gift" (wishlist_id, name, price, links, quantity, notes)
+                    select ?, g.name, g.price, g.links, g.quantity, g.notes
+                    from "Gift" g
+                    join "Wishlist" w on w.id = g.wishlist_id
+                    where g.id = ? and w.id <> ? and w.owner_id = auth.uid() and g.removed_at is null
+                      and not exists (select 1 from "Gift" t
+                                      where t.wishlist_id = ? and t.removed_at is null
+                                        and lower(t.name) = lower(g.name))
+                    returning id, (select image_path from "Gift" where id = ?) as image_path""")) {
+                for (UUID source : new LinkedHashSet<>(giftIds)) {
+                    s.setObject(1, wishlistId);
+                    s.setObject(2, source);
+                    s.setObject(3, wishlistId);
+                    s.setObject(4, wishlistId);
+                    s.setObject(5, source);
+                    try (ResultSet r = s.executeQuery()) {
+                        if (r.next()) {
+                            out.add(new Copied(r.getObject("id", UUID.class), r.getString("image_path")));
+                        }
+                    }
+                }
+            }
+            return out;
+        });
+        int photoFailures = 0;
+        for (Copied gift : copied) {
+            if (gift.imagePath() != null && !images.copy(jwt, gift.imagePath(), gift.id())) {
+                photoFailures++;
+            }
+        }
+        LOG.infof("User %s copied %d gifts to wishlist %s", jwt.getSubject(), copied.size(), wishlistId);
+        return new CopyResult(copied.size(), photoFailures);
+    }
+
+    /**
+     * Outcome of {@link #copyGifts}.
+     *
+     * @param copied        gifts copied
+     * @param photoFailures copied gifts whose photo could not be copied
+     */
+    public record CopyResult(int copied, int photoFailures) {
     }
 
     /** Binds name, price, links, quantity, notes and visibility from {@code first}; returns the next index. */

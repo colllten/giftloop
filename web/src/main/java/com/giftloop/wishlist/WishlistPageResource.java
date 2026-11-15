@@ -17,6 +17,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import org.jboss.resteasy.reactive.RestForm;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -27,7 +28,9 @@ import org.jboss.logging.Logger;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -116,6 +119,14 @@ public class WishlistPageResource {
          * @return fragment
          */
         static native TemplateInstance giftForm(GiftFormView view);
+
+        /**
+         * "Add from a past list" picker fragment.
+         *
+         * @param view the owner's other gifts
+         * @return fragment
+         */
+        static native TemplateInstance pastGifts(PastGiftsView view);
     }
 
     /**
@@ -214,6 +225,59 @@ public class WishlistPageResource {
     public TemplateInstance autofillEdit(@PathParam("id") UUID id, @PathParam("giftId") UUID giftId,
                                          @BeanParam GiftFormParams params) {
         return autofill(id, giftId, params);
+    }
+
+    /**
+     * Picker of the owner's gifts on their other wishlists (owner).
+     *
+     * @param id wishlist id
+     * @return fragment
+     * @throws ForbiddenException if the caller does not own the wishlist
+     */
+    @GET
+    @Path("wishlists/{id}/past-gifts")
+    @Operation(hidden = true)
+    public TemplateInstance pastGifts(@PathParam("id") UUID id) {
+        requireOwner(id);
+        return Templates.pastGifts(wishlists.pastGifts(jwt, id));
+    }
+
+    /**
+     * Copies picked gifts from the owner's other wishlists onto this one (owner).
+     *
+     * @param id         wishlist id
+     * @param picked     source gift ids
+     * @param currentUrl page URL (HTMX), to keep its claim filter
+     * @return refreshed body, or the picker with an error
+     */
+    @POST
+    @Path("wishlists/{id}/gifts/copy")
+    @Operation(hidden = true)
+    public Response copyGifts(@PathParam("id") UUID id, @RestForm("gift") List<String> picked,
+                              @HeaderParam(HX_CURRENT_URL) String currentUrl) {
+        List<UUID> ids = new ArrayList<>();
+        for (String raw : picked == null ? List.<String>of() : picked) {
+            try {
+                ids.add(UUID.fromString(raw.strip()));
+            } catch (IllegalArgumentException e) {
+                LOG.debugf("Ignoring bad gift id %s", raw);
+            }
+        }
+        if (ids.isEmpty()) {
+            requireOwner(id);
+            return Response.ok(Templates.pastGifts(wishlists.pastGifts(jwt, id)
+                    .withError("Pick at least one gift to copy."))).build();
+        }
+        WishlistService.CopyResult result = wishlists.copyGifts(jwt, id, ids);
+        String notice = switch (result.copied()) {
+            case 0 -> "Nothing was copied. Those gifts are already on this list.";
+            case 1 -> "Copied 1 gift.";
+            default -> "Copied " + result.copied() + " gifts.";
+        };
+        if (result.photoFailures() > 0) {
+            notice += " Some photos couldn't be copied.";
+        }
+        return body(id, notice, currentUrl);
     }
 
     /**
@@ -399,6 +463,12 @@ public class WishlistPageResource {
                 .header(HX_RETARGET, BODY_TARGET)
                 .header(HX_RESWAP, "innerHTML")
                 .build();
+    }
+
+    private void requireOwner(UUID id) {
+        if (!load(id).callerIsOwner()) {
+            throw new ForbiddenException();
+        }
     }
 
     private WishlistDetail load(UUID id) {

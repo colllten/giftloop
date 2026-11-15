@@ -259,6 +259,52 @@ class GiftPhotoFlowTest {
                 .then().statusCode(404);
     }
 
+    /** Gifts (and photos) copy from the owner's other lists; duplicates and others' gifts are skipped. */
+    @Test
+    void copyFromPastList() {
+        UUID past = createWishlist("Copy Past Event");
+        owner.browser().htmxMultipart("/wishlists/" + past + "/gifts", fields("Reading Lamp"), "photo",
+                png(120, 120), "image/png").then().statusCode(200);
+        owner.browser().htmxMultipart("/wishlists/" + past + "/gifts", fields("Good Book"), "photo", null, null)
+                .then().statusCode(200);
+        UUID lamp = giftId(past, "Reading Lamp");
+        UUID book = giftId(past, "Good Book");
+
+        UUID current = createWishlist("Copy Current Event");
+        owner.browser().htmxMultipart("/wishlists/" + current + "/gifts", fields("good book"), "photo", null, null)
+                .then().statusCode(200);
+        owner.browser().get("/wishlists/" + current).then().body(containsString("Add from a past list"));
+        owner.browser().get("/wishlists/" + current + "/past-gifts").then().statusCode(200)
+                .body(containsString("Copy Past Event"))
+                .body(containsString("Reading Lamp"))
+                .body(not(containsString("Good Book")));
+        owner.browser().htmxPost("/wishlists/" + current + "/gifts/copy", Map.of())
+                .then().statusCode(200).body(containsString("Pick at least one gift to copy."));
+        owner.browser().htmxPost("/wishlists/" + current + "/gifts/copy",
+                        Map.of("gift", List.of(lamp.toString(), book.toString(), "nonsense")))
+                .then().statusCode(200).header("HX-Retarget", "#wishlist-body")
+                .body(containsString("Copied 1 gift."));
+        String original = imageUrl(past, "Reading Lamp");
+        String copy = imageUrl(current, "Reading Lamp");
+        assertNotNull(copy);
+        assertTrue(!copy.equals(original), "copy has its own photo file");
+        viewer.browser().request().get(copy).then().statusCode(200);
+
+        viewer.browser().get("/wishlists/" + current).then().statusCode(200);
+        viewer.browser().request().get("/wishlists/" + current + "/past-gifts").then().statusCode(403);
+        UUID viewersList = createWishlistFor(viewer,
+                owner.browser().request().get("/api/wishlists/" + current).path("eventId"));
+        viewer.browser().htmxPost("/wishlists/" + viewersList + "/gifts/copy", Map.of("gift", lamp.toString()))
+                .then().statusCode(200).body(containsString("Nothing was copied"));
+    }
+
+    private static UUID createWishlistFor(TestUser user, String eventId) {
+        user.browser().get("/events/" + eventId).then().statusCode(200);
+        String location = user.browser().htmxPost("/events/" + eventId + "/wishlist", Map.of())
+                .then().statusCode(200).extract().header("HX-Redirect");
+        return UUID.fromString(location.substring("/wishlists/".length()));
+    }
+
     /** Deleting a gift deletes its photo file. */
     @Test
     void deletingGiftDeletesPhoto() {

@@ -36,6 +36,9 @@
 <section class="card wishlist-add" aria-labelledby="add-heading">
 <h2 id="add-heading">Add a gift</h2>
 {#giftform form=view.addForm /}
+<div class="past-gifts" id="past-gifts">
+  <button type="button" class="link-button" hx-get="/wishlists/{w.id}/past-gifts" hx-target="#past-gifts" hx-swap="outerHTML">Add from a past list</button>
+</div>
 </section>
 
 <section class="wishlist-settings" aria-labelledby="delete-heading">
