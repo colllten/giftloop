@@ -9,7 +9,6 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.logging.Logger;
-import org.postgresql.util.PSQLException;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -23,6 +22,8 @@ import java.util.UUID;
 
 import static com.giftloop.security.Sql.firstLine;
 import static com.giftloop.security.Sql.prepare;
+import static com.giftloop.security.Sql.RATE_LIMITED;
+import static com.giftloop.security.Sql.retryAfter;
 import static com.giftloop.security.Sql.sqlState;
 
 /**
@@ -37,7 +38,6 @@ import static com.giftloop.security.Sql.sqlState;
 public class GroupService {
 
     private static final Logger LOG = Logger.getLogger(GroupService.class);
-    private static final String RATE_LIMITED = "PT429";
     /** Mirrors {@code c_window} in {@code private.join_group_by_code}. */
     private static final Duration JOIN_FAILURE_WINDOW = Duration.ofMinutes(15);
 
@@ -159,7 +159,7 @@ public class GroupService {
             });
         } catch (DataAccessException e) {
             if (RATE_LIMITED.equals(sqlState(e))) {
-                Duration retryAfter = retryAfter(e);
+                Duration retryAfter = retryAfter(e, JOIN_FAILURE_WINDOW);
                 LOG.warnf("User %s is rate limited from joining groups for %s", jwt.getSubject(), retryAfter);
                 throw new JoinRateLimitedException(retryAfter);
             }
@@ -343,20 +343,5 @@ public class GroupService {
             }
             throw e;
         }
-    }
-
-    /**
-     * Seconds until retry, from the {@code PT429} error's DETAIL. Falls back to the full
-     * window if the detail is missing (it is always set by {@code join_group_by_code}).
-     */
-    private static Duration retryAfter(DataAccessException e) {
-        if (e.getCause() instanceof PSQLException pg && pg.getServerErrorMessage() != null) {
-            try {
-                return Duration.ofSeconds(Long.parseLong(pg.getServerErrorMessage().getDetail()));
-            } catch (NumberFormatException ignored) {
-                LOG.warnf("Unexpected join rate limit detail: %s", pg.getServerErrorMessage().getDetail());
-            }
-        }
-        return JOIN_FAILURE_WINDOW;
     }
 }

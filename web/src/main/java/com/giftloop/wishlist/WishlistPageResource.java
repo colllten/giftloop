@@ -1,5 +1,7 @@
 package com.giftloop.wishlist;
 
+import com.giftloop.enrich.AutofillQuota;
+import com.giftloop.enrich.AutofillRateLimitedException;
 import com.giftloop.enrich.LinkPreviewService;
 import com.giftloop.image.Images;
 import com.giftloop.security.RequiresOnboarding;
@@ -28,6 +30,7 @@ import org.jboss.logging.Logger;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -64,21 +67,24 @@ public class WishlistPageResource {
     private final WishlistService wishlists;
     private final GiftImageService images;
     private final LinkPreviewService previews;
+    private final AutofillQuota autofillQuota;
 
     /**
      * Creates the resource.
      *
-     * @param jwt       caller's verified token
-     * @param wishlists wishlist access
-     * @param images    gift photo storage
-     * @param previews  link auto-fill
+     * @param jwt           caller's verified token
+     * @param wishlists     wishlist access
+     * @param images        gift photo storage
+     * @param previews      link auto-fill
+     * @param autofillQuota per-user auto-fill rate limit
      */
     public WishlistPageResource(JsonWebToken jwt, WishlistService wishlists, GiftImageService images,
-                                LinkPreviewService previews) {
+                                LinkPreviewService previews, AutofillQuota autofillQuota) {
         this.jwt = jwt;
         this.wishlists = wishlists;
         this.images = images;
         this.previews = previews;
+        this.autofillQuota = autofillQuota;
     }
 
     /**
@@ -405,13 +411,31 @@ public class WishlistPageResource {
             out.put("source", "Please paste a web address, like example.com/gift.");
             return GiftFormView.of(wishlist, gift, form, out, null);
         }
-        LinkPreviewService.Result result = previews.preview(jwt.getSubject(), link);
+        try {
+            autofillQuota.consume(jwt);
+        } catch (AutofillRateLimitedException e) {
+            return GiftFormView.of(wishlist, gift, form, out, autofillLimitedMessage(e.retryAfter()));
+        }
+        LinkPreviewService.Result result = previews.preview(link);
         GiftForm filled = form.autofill(result.preview(), link, result.image(),
                 gift != null && gift.imagePath() != null);
         String notice = result.problem() != null ? result.problem()
                 : "Filled in from " + URI.create(link).getHost().replaceFirst("^www\\.", "")
                 + ". Check the details, then " + (gift == null ? "add the gift." : "save.");
         return GiftFormView.of(wishlist, gift, filled, out, notice);
+    }
+
+    /**
+     * Auto-fill notice while rate limited, with the wait rounded up to whole minutes.
+     *
+     * @param retryAfter time until the user may try again
+     * @return e.g. "You've auto-filled a lot of gifts lately. Try again in 12 minutes, or fill in the
+     *         details below."
+     */
+    static String autofillLimitedMessage(Duration retryAfter) {
+        long minutes = Math.max(1, (retryAfter.toSeconds() + 59) / 60);
+        return "You've auto-filled a lot of gifts lately. Try again in " + minutes
+                + (minutes == 1 ? " minute" : " minutes") + ", or fill in the details below.";
     }
 
     /**
