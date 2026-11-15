@@ -39,6 +39,7 @@ erDiagram
 | `Wishlist` | One live wishlist per (`event_id`, `owner_id`) (partial unique index). Owner must be a group member. `removed_at` set = removed shell kept for claimed gifts. `owner_id` is null only on removed shells whose owner deleted their account. |
 | `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. `is_visible_to_all` (default true); when false, only `GiftViewer` rows can see it. `removed_at` set = owner removed it after it was claimed. `image_path` = `<owner id>/<gift id>/<file>` in `gift-images` (check: second segment is the gift's own id). |
 | `GiftImageOrphan` | Gift photo files no gift points at (replaced, cleared or deleted). Filled by trigger; RLS on, no policies, no grants. Drained per owner by `take_gift_image_orphans()`. |
+| `LinkPreviewAttempt` | One row per auto-fill attempt (`user_id`, `attempted_at`); links aren't stored. RLS on, no policies, no grants: only `record_link_preview` uses it. Rows older than the window are pruned on the user's next attempt. |
 | `GiftViewer` | (`gift_id`, `user_id`) allowlist for restricted gifts. Owner-only read/write. Viewer must be a group member, not the owner (`23514`). Rows are dropped when the member leaves the group. |
 | `Claim` | `quantity` units of a gift. Total claimed **may exceed** `Gift.quantity`. `purchased_quantity` (0..`quantity`) = units bought; set only via `private.set_claim_purchased`, by any participant. `created_by` is not readable via the API. |
 | `ClaimParticipant` | Creator auto-added and can't leave (release the claim instead). Any participant can be `is_anonymous`. `joined_at` orders who inherits the claim. |
@@ -63,6 +64,9 @@ erDiagram
   `image_path` changes or a gift row is deleted (including claim-release
   purges). After gift writes the app calls `private.take_gift_image_orphans()`
   and deletes the returned files through Storage as the owner.
+- Auto-fill limit: the app calls `private.record_link_preview()` before each
+  link preview. 20 attempts within 1 hour (sliding) → `PT429` with DETAIL =
+  seconds until retry; blocked attempts aren't recorded.
 
 ## Group Membership
 Functions in `private` (security definer, callable by `authenticated`):

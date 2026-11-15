@@ -10,11 +10,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.time.Clock;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,21 +18,16 @@ import java.util.regex.Pattern;
  * Never throws for bad links or unfriendly sites: the result says what went wrong in
  * words for the user, and they fill the form in by hand.
  *
- * <p>Each user gets {@value #LIMIT} previews per minute (in memory, per instance), since
- * every preview makes outbound requests on their behalf.
+ * <p>Callers rate limit first with {@link AutofillQuota}, since every preview makes outbound
+ * requests on the user's behalf.
  */
 @ApplicationScoped
 public class LinkPreviewService {
 
-    /** Previews per user per window. */
-    static final int LIMIT = 20;
-    private static final long WINDOW_MILLIS = 60_000;
     private static final Pattern CHARSET = Pattern.compile("charset=\"?([\\w.:-]+)", Pattern.CASE_INSENSITIVE);
     private static final Logger LOG = Logger.getLogger(LinkPreviewService.class);
 
     private final SafeFetcher fetcher;
-    private final Clock clock;
-    private final Map<String, Deque<Long>> recent = new ConcurrentHashMap<>();
 
     /**
      * Result of an auto-fill attempt.
@@ -60,37 +50,21 @@ public class LinkPreviewService {
      */
     @Inject
     public LinkPreviewService(SafeFetcher fetcher) {
-        this(fetcher, Clock.systemUTC());
-    }
-
-    /**
-     * Creates the service with a given clock (tests).
-     *
-     * @param fetcher SSRF-safe HTTP fetcher
-     * @param clock   time source for the rate limit
-     */
-    LinkPreviewService(SafeFetcher fetcher, Clock clock) {
         this.fetcher = fetcher;
-        this.clock = clock;
     }
 
     /**
      * Reads product details and photo from a link.
      *
-     * @param userId caller (for the rate limit)
-     * @param url    absolute http(s) URL
+     * @param url absolute http(s) URL
      * @return details, or a message for the user
      */
-    public Result preview(String userId, String url) {
+    public Result preview(String url) {
         URI uri;
         try {
             uri = new URI(url);
         } catch (URISyntaxException | NullPointerException e) {
             return Result.failed("That doesn't look like a link. Please check it and try again.");
-        }
-        if (!allow(userId)) {
-            LOG.infof("User %s hit the link preview limit", userId);
-            return Result.failed("That's a lot of links at once. Please wait a minute and try again.");
         }
         SafeFetcher.Fetched page;
         try {
@@ -117,22 +91,6 @@ public class LinkPreviewService {
         } catch (SafeFetcher.FetchException | Images.InvalidImageException e) {
             LOG.infof("Link preview photo skipped (%s): %s", imageUrl.getHost(), e.getMessage());
             return null;
-        }
-    }
-
-    /** Sliding-window limit per user. */
-    boolean allow(String userId) {
-        long now = clock.millis();
-        Deque<Long> times = recent.computeIfAbsent(userId, k -> new ArrayDeque<>());
-        synchronized (times) {
-            while (!times.isEmpty() && now - times.peekFirst() >= WINDOW_MILLIS) {
-                times.pollFirst();
-            }
-            if (times.size() >= LIMIT) {
-                return false;
-            }
-            times.addLast(now);
-            return true;
         }
     }
 

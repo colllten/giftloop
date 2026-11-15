@@ -1,6 +1,7 @@
 package com.giftloop.wishlist;
 
 import com.giftloop.TestUser;
+import com.giftloop.enrich.AutofillQuota;
 import com.sun.net.httpserver.HttpServer;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.AfterAll;
@@ -116,16 +117,21 @@ class GiftPhotoFlowTest {
 
     private static UUID createWishlist(String eventName) {
         setUp();
-        owner.browser().get("/groups/" + groupId + "/events/new").then().statusCode(200);
-        String event = owner.browser()
-                .htmxPost("/groups/" + groupId + "/events", Map.of("name", eventName, "endDate", "2026-12-26"))
+        return createWishlist(owner, groupId, eventName);
+    }
+
+    /** Creates an event in the group and the user's wishlist for it. */
+    private static UUID createWishlist(TestUser user, UUID group, String eventName) {
+        user.browser().get("/groups/" + group + "/events/new").then().statusCode(200);
+        String event = user.browser()
+                .htmxPost("/groups/" + group + "/events", Map.of("name", eventName, "endDate", "2026-12-26"))
                 .then().statusCode(200).extract().header("HX-Redirect");
         UUID eventId = UUID.fromString(event.substring("/events/".length()));
-        owner.browser().get("/events/" + eventId).then().statusCode(200);
-        String location = owner.browser().htmxPost("/events/" + eventId + "/wishlist", Map.of())
+        user.browser().get("/events/" + eventId).then().statusCode(200);
+        String location = user.browser().htmxPost("/events/" + eventId + "/wishlist", Map.of())
                 .then().statusCode(200).extract().header("HX-Redirect");
         UUID id = UUID.fromString(location.substring("/wishlists/".length()));
-        owner.browser().get("/wishlists/" + id).then().statusCode(200);
+        user.browser().get("/wishlists/" + id).then().statusCode(200);
         return id;
     }
 
@@ -210,6 +216,37 @@ class GiftPhotoFlowTest {
 
         viewer.browser().get("/wishlists/" + wishlistId).then().statusCode(200);
         viewer.browser().htmxMultipart(path, form, "photo", null, null).then().statusCode(403);
+    }
+
+    /**
+     * Twenty auto-fills per user per hour; the 21st keeps the form as typed and says when to retry.
+     * Uses its own user so the shared owner's allowance is untouched.
+     */
+    @Test
+    void autofillIsRateLimitedPerHour() {
+        setUp();
+        TestUser busy = TestUser.create("Busy Autofiller");
+        busy.browser().get("/groups/new").then().statusCode(200);
+        String group = busy.browser().htmxPost("/groups", Map.of("name", "Busy Family"))
+                .then().statusCode(200).extract().header("HX-Redirect");
+        UUID wishlistId = createWishlist(busy, UUID.fromString(group.substring("/groups/".length())),
+                "Busy Event");
+        String path = "/wishlists/" + wishlistId + "/gifts/autofill";
+        Map<String, Object> form = fields("");
+        form.put("source_url", storeUrl + "/mug");
+        for (int i = 0; i < AutofillQuota.LIMIT; i++) {
+            busy.browser().htmxMultipart(path, form, "photo", null, null)
+                    .then().statusCode(200).body(containsString("value=\"Enamel Camp Mug\""));
+        }
+        busy.browser().htmxMultipart(path, form, "photo", null, null)
+                .then().statusCode(200)
+                .body(containsString("auto-filled a lot of gifts lately. Try again in 60 minutes"))
+                .body(not(containsString("Enamel Camp Mug")));
+
+        Map<String, Object> blank = fields("");
+        blank.put("source_url", "");
+        busy.browser().htmxMultipart(path, blank, "photo", null, null)
+                .then().body(containsString("Paste a link to a product page."));
     }
 
     /** Owners upload, replace and remove photos; removed files are deleted from storage. */

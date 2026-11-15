@@ -1,8 +1,12 @@
 package com.giftloop.security;
 
+import org.jboss.logging.Logger;
+import org.postgresql.util.PSQLException;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.time.Duration;
 
 /**
  * Small JDBC helpers shared by the feature services.
@@ -13,6 +17,10 @@ public final class Sql {
     public static final String INSUFFICIENT_PRIVILEGE = "42501";
     /** SQLSTATE raised by check constraints and validation triggers. */
     public static final String CHECK_VIOLATION = "23514";
+    /** SQLSTATE raised by rate-limited {@code private.*} functions; DETAIL holds seconds until retry. */
+    public static final String RATE_LIMITED = "PT429";
+
+    private static final Logger LOG = Logger.getLogger(Sql.class);
 
     private Sql() {
     }
@@ -42,6 +50,25 @@ public final class Sql {
      */
     public static String sqlState(DataAccessException e) {
         return e.getCause() instanceof SQLException sql ? sql.getSQLState() : null;
+    }
+
+    /**
+     * Time until retry, from a {@link #RATE_LIMITED} error's DETAIL (seconds).
+     *
+     * @param e        wrapped {@code PT429} failure
+     * @param fallback used if the detail is missing or not a number
+     * @return time until the caller may try again
+     */
+    public static Duration retryAfter(DataAccessException e, Duration fallback) {
+        if (e.getCause() instanceof PSQLException pg && pg.getServerErrorMessage() != null) {
+            String detail = pg.getServerErrorMessage().getDetail();
+            try {
+                return Duration.ofSeconds(Long.parseLong(detail));
+            } catch (NumberFormatException ignored) {
+                LOG.warnf("Unexpected rate limit detail: %s", detail);
+            }
+        }
+        return fallback;
     }
 
     /**

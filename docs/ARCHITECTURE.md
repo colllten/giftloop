@@ -125,7 +125,7 @@ sequenceDiagram
   participant P as Postgres
   participant S as Supabase Storage
   B->>Q: paste link → POST /wishlists/{id}/gifts/autofill (whole form)
-  Q->>Q: rate limit (20/min/user)
+  Q->>P: record_link_preview() — 20/hour/user, else PT429 → notice, no fetch
   Q->>R: GET page (SafeFetcher: resolve once, public IPs only, ≤3 checked redirects, 6 s, 1.5 MB)
   Q->>Q: parse JSON-LD / OpenGraph / microdata
   Q->>R: GET product image (≤5 MB)
