@@ -192,6 +192,35 @@ Marking units bought (`POST …/claims/{c}/purchased`) calls
 `private.set_claim_purchased` as the caller, so co-buyers can set it without an
 update grant on `Claim` (which would let them change `quantity`).
 
+### Off-list gifts
+Non-owners record a gift they're giving that isn't on the list
+(`POST /wishlists/{id}/off-list`). It's a gift plus the caller's claim, made by
+one DB function, so it shows under **Not on the list** with the normal claim
+controls. The giver edits details via `…/gifts/{g}/off-list`. When a claim
+action leaves the caller unable to see the gift (off-list released, removed gift
+released), the response re-targets `#wishlist-body` instead of the card.
+```mermaid
+sequenceDiagram
+  participant B as Giver (HTMX)
+  participant Q as Quarkus
+  participant P as Postgres
+  B->>Q: POST /wishlists/{w}/off-list (name, price, links, notes, bought, anonymous)
+  Q->>Q: OffListForm.validate (GiftForm rules)
+  Q->>P: BEGIN as caller
+  Q->>P: select private.add_off_list_gift(w, ...)
+  P->>P: check live wishlist, member, not owner (else 42501)
+  P->>P: insert Gift (is_off_list) + Claim (trigger adds caller as participant)
+  opt anonymous
+    Q->>P: update own ClaimParticipant set is_anonymous
+  end
+  opt bought
+    Q->>P: select private.set_claim_purchased(claim, 1)
+  end
+  Q->>P: COMMIT
+  Q-->>B: body + HX-Retarget #wishlist-body
+  Note over P: Owner's Gift RLS hides it until claims are revealed
+```
+
 Owners remove gifts through `private.remove_gift` / `remove_wishlist` (see
 `docs/DATABASE.md` → Gift Removal); the response is the same whether the gift
 was claimed or not.

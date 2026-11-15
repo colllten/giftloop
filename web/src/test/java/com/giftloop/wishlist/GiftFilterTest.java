@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GiftFilterTest {
 
     private static Gift gift(int wanted, GiftClaims claims, boolean removed) {
-        return new Gift(UUID.randomUUID(), "x", null, List.of(), wanted, null, true, Set.of(), removed, claims, null);
+        return new Gift(UUID.randomUUID(), "x", null, List.of(), wanted, null, true, Set.of(), removed, claims, null, false);
     }
 
     private static GiftClaims claimed(int quantity, boolean mine) {

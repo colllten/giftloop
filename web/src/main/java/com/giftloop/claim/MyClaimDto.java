@@ -26,11 +26,12 @@ import java.util.UUID;
  * @param eventName   event name
  * @param endDate     event end date, or null
  * @param groupName   group name
+ * @param offList     the gift isn't on the owner's list (a giver added it)
  */
 public record MyClaimDto(UUID id, int quantity, int purchased, boolean creator, boolean anonymous,
                          List<String> coBuyers, UUID giftId, String giftName, BigDecimal price, List<String> links,
                          int wanted, boolean removed, UUID wishlistId, String ownerName, UUID eventId, String eventName,
-                         LocalDate endDate, String groupName) {
+                         LocalDate endDate, String groupName, boolean offList) {
 
     /**
      * Maps a claim to its API shape.
@@ -42,6 +43,6 @@ public record MyClaimDto(UUID id, int quantity, int purchased, boolean creator, 
         return new MyClaimDto(c.claim().id(), c.claim().quantity(), c.claim().purchased(), c.claim().callerIsCreator(),
                 c.claim().callerIsAnonymous(), c.claim().others().stream().map(Participant::name).toList(),
                 c.giftId(), c.giftName(), c.price(), c.links(), c.wanted(), c.giftRemoved(), c.wishlistId(),
-                c.ownerName(), c.eventId(), c.eventName(), c.endDate(), c.groupName());
+                c.ownerName(), c.eventId(), c.eventName(), c.endDate(), c.groupName(), c.offList());
     }
 }

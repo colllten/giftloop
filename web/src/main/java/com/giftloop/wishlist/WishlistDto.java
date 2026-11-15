@@ -35,11 +35,13 @@ public record WishlistDto(UUID id, UUID eventId, String ownerName, boolean mine,
      * @param claimedByMe  whether the caller is on a claim
      * @param removed      true when the owner removed it (only its claimers see it); omitted otherwise
      * @param imageUrl     app-relative photo URL (needs the same session); omitted when there is none
+     * @param offList      true when a giver added it (not on the owner's list); omitted otherwise
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GiftDto(UUID id, String name, BigDecimal price, List<String> links, int quantity, String notes,
                           Boolean visibleToAll, Set<UUID> viewerIds, Integer claimedQuantity,
-                          Integer purchasedQuantity, Boolean claimedByMe, Boolean removed, String imageUrl) {
+                          Integer purchasedQuantity, Boolean claimedByMe, Boolean removed, String imageUrl,
+                          Boolean offList) {
     }
 
     /**
@@ -57,7 +59,8 @@ public record WishlistDto(UUID id, UUID eventId, String ownerName, boolean mine,
                         g.claimsShown() ? g.claims().purchasedQuantity() : null,
                         g.claimsShown() ? g.claims().hasMine() : null,
                         g.removed() ? Boolean.TRUE : null,
-                        g.imageUrl()))
+                        g.imageUrl(),
+                        g.offList() ? Boolean.TRUE : null))
                 .toList();
         return new WishlistDto(w.id(), w.eventId(), w.ownerName(), w.callerIsOwner(), gifts);
     }
