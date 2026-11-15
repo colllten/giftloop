@@ -2,6 +2,8 @@ package com.giftloop.claim;
 
 import com.giftloop.security.RequiresOnboarding;
 import com.giftloop.wishlist.Gift;
+import com.giftloop.wishlist.GiftFilter;
+import com.giftloop.wishlist.WishlistBodyView;
 import com.giftloop.wishlist.WishlistDetail;
 import com.giftloop.wishlist.WishlistService;
 import io.quarkus.qute.CheckedTemplate;
@@ -9,6 +11,7 @@ import io.quarkus.qute.TemplateInstance;
 import io.quarkus.security.Authenticated;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -39,6 +42,8 @@ public class ClaimPageResource {
 
     /** Form value of {@code view} sent from the My claims page. */
     static final String CLAIMS_VIEW = "claims";
+    /** HTMX request header with the browser's current URL (carries {@code ?show=}). */
+    static final String HX_CURRENT_URL = "HX-Current-URL";
 
     private final JsonWebToken jwt;
     private final ClaimService claims;
@@ -88,6 +93,14 @@ public class ClaimPageResource {
          * @return fragment
          */
         static native TemplateInstance giftCard(WishlistDetail w, Gift gift, String notice, String error);
+
+        /**
+         * Whole wishlist body ({@code #wishlist-body}), for when the gift's card goes away.
+         *
+         * @param view body data
+         * @return fragment
+         */
+        static native TemplateInstance wishlistBody(WishlistBodyView view);
     }
 
     /**
@@ -228,17 +241,23 @@ public class ClaimPageResource {
      * @param claimId    claim id
      * @param userId     participant to remove
      * @param view       {@code claims} when posted from My claims
-     * @return the refreshed card or My claims body
+     * @param currentUrl page URL (HTMX), to keep its claim filter if the whole body is refreshed
+     * @return the refreshed card (or wishlist body, if the caller can no longer see the gift) or My claims body
      */
     @POST
     @Path("wishlists/{wishlistId}/gifts/{giftId}/claims/{claimId}/participants/{userId}/delete")
     @Operation(hidden = true)
     public Response removeParticipant(@PathParam("wishlistId") UUID wishlistId, @PathParam("giftId") UUID giftId,
                                       @PathParam("claimId") UUID claimId, @PathParam("userId") UUID userId,
-                                      @RestForm String view) {
+                                      @RestForm String view, @HeaderParam(HX_CURRENT_URL) String currentUrl) {
         boolean leaving = userId.toString().equals(jwt.getSubject());
-        return attempt(wishlistId, giftId, view, leaving ? "You left the claim." : "Co-buyer removed.",
-                () -> claims.removeParticipant(jwt, claimId, userId));
+        String notice = leaving ? "You left the claim." : "Co-buyer removed.";
+        try {
+            claims.removeParticipant(jwt, claimId, userId);
+        } catch (BadRequestException e) {
+            return respond(wishlistId, giftId, view, null, e.getMessage());
+        }
+        return respond(wishlistId, giftId, view, notice, null, currentUrl);
     }
 
     /**
@@ -248,15 +267,17 @@ public class ClaimPageResource {
      * @param giftId     gift id
      * @param claimId    claim id
      * @param view       {@code claims} when posted from My claims
-     * @return the refreshed card (empty if the gift was removed and is now gone) or My claims body
+     * @param currentUrl page URL (HTMX), to keep its claim filter if the whole body is refreshed
+     * @return the refreshed card (or wishlist body, if the gift is now gone: removed or off-list) or My claims body
      */
     @POST
     @Path("wishlists/{wishlistId}/gifts/{giftId}/claims/{claimId}/delete")
     @Operation(hidden = true)
     public Response release(@PathParam("wishlistId") UUID wishlistId, @PathParam("giftId") UUID giftId,
-                            @PathParam("claimId") UUID claimId, @RestForm String view) {
+                            @PathParam("claimId") UUID claimId, @RestForm String view,
+                            @HeaderParam(HX_CURRENT_URL) String currentUrl) {
         claims.release(jwt, claimId);
-        return respond(wishlistId, giftId, view, "Claim released.", null);
+        return respond(wishlistId, giftId, view, "Claim released.", null, currentUrl);
     }
 
     /** Runs an action; a rule rejection ({@link BadRequestException}) becomes an inline error. */
@@ -269,17 +290,28 @@ public class ClaimPageResource {
         return respond(wishlistId, giftId, view, notice, null);
     }
 
-    /**
-     * The fragment the form asked for: the My claims body, or the gift's card. A card for a gift
-     * the caller can no longer see (released claim on a removed gift) is empty, removing it.
-     */
+    /** {@link #respond(UUID, UUID, String, String, String, String)} without a page URL. */
     private Response respond(UUID wishlistId, UUID giftId, String view, String notice, String error) {
+        return respond(wishlistId, giftId, view, notice, error, null);
+    }
+
+    /**
+     * The fragment the form asked for: the My claims body, or the gift's card. When the caller can
+     * no longer see the gift (released claim on a removed or off-list gift), the whole wishlist
+     * body is re-rendered instead ({@code HX-Retarget}), so section headings and counts stay right.
+     */
+    private Response respond(UUID wishlistId, UUID giftId, String view, String notice, String error,
+                             String currentUrl) {
         if (CLAIMS_VIEW.equals(view)) {
             return Response.ok(Templates.claimsBody(MyClaimsView.of(claims.myClaims(jwt), notice, error))).build();
         }
         WishlistDetail w = wishlists.find(jwt, wishlistId).orElseThrow(NotFoundException::new);
         return w.gift(giftId)
                 .map(gift -> Response.ok(Templates.giftCard(w, gift, notice, error)).build())
-                .orElseGet(() -> Response.ok("").build());
+                .orElseGet(() -> Response.ok(Templates.wishlistBody(
+                                WishlistBodyView.of(w, notice, GiftFilter.fromUrl(currentUrl))))
+                        .header("HX-Retarget", "#wishlist-body")
+                        .header("HX-Reswap", "innerHTML")
+                        .build());
     }
 }

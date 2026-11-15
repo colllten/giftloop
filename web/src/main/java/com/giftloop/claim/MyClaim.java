@@ -26,10 +26,12 @@ import java.util.UUID;
  * @param endDate         event end date, or null
  * @param past            the event has ended
  * @param groupName       group name
+ * @param offList         the gift isn't on the owner's list (a giver added it)
  */
 public record MyClaim(GiftClaim claim, UUID giftId, String giftName, BigDecimal price, List<String> links,
                       int wanted, boolean giftRemoved, UUID wishlistId, boolean wishlistRemoved, String ownerName,
-                      UUID eventId, String eventName, LocalDate endDate, boolean past, String groupName) {
+                      UUID eventId, String eventName, LocalDate endDate, boolean past, String groupName,
+                      boolean offList) {
 
     /**
      * Price for display, e.g. {@code $249.99}.

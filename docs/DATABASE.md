@@ -37,7 +37,7 @@ erDiagram
 | `JoinCodeFailure` | One row per unknown join code entered (`user_id`, `failed_at`); guesses aren't stored. RLS on, no policies, no grants: only `join_group_by_code` uses it. Rows older than the window are pruned on the user's next attempt. |
 | `Event` | `end_date` drives claim reveal. Null = never auto-reveal. |
 | `Wishlist` | One live wishlist per (`event_id`, `owner_id`) (partial unique index). Owner must be a group member. `removed_at` set = removed shell kept for claimed gifts. `owner_id` is null only on removed shells whose owner deleted their account. |
-| `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. `is_visible_to_all` (default true); when false, only `GiftViewer` rows can see it. `removed_at` set = owner removed it after it was claimed. `image_path` = `<owner id>/<gift id>/<file>` in `gift-images` (check: second segment is the gift's own id). |
+| `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. `is_visible_to_all` (default true); when false, only `GiftViewer` rows can see it. `removed_at` set = owner removed it after it was claimed. `is_off_list` = a giver added it (see Off-list Gifts). `image_path` = `<owner id>/<gift id>/<file>` in `gift-images` (check: second segment is the gift's own id). |
 | `GiftImageOrphan` | Gift photo files no gift points at (replaced, cleared or deleted). Filled by trigger; RLS on, no policies, no grants. Drained per owner by `take_gift_image_orphans()`. |
 | `LinkPreviewAttempt` | One row per auto-fill attempt (`user_id`, `attempted_at`); links aren't stored. RLS on, no policies, no grants: only `record_link_preview` uses it. Rows older than the window are pruned on the user's next attempt. |
 | `GiftViewer` | (`gift_id`, `user_id`) allowlist for restricted gifts. Owner-only read/write. Viewer must be a group member, not the owner (`23514`). Rows are dropped when the member leaves the group. |
@@ -98,6 +98,23 @@ Hidden gifts can't be claimed, and their claims stay hidden too
 (`can_claim_gift` / `can_view_claims`). A claimer can't add a co-participant who
 can't see the gift (`23514`), since that would grant them visibility.
 Only the owner can read a gift's viewer list.
+
+## Off-list Gifts
+A giver records a gift that isn't on the owner's list. It is a `Gift` with
+`is_off_list = true` (always shared with everyone, quantity 1) plus exactly one
+`Claim` by the giver. `Claim.created_by` stays hidden, so anonymity works as usual.
+- `private.add_off_list_gift(wishlist, name, price, links, notes)` → gift id.
+  Live wishlist, caller a member and not the owner; else `42501`. Inserts the
+  gift and the giver's claim.
+- `private.update_off_list_gift(gift, name, price, links, notes)`. Claim
+  creator of a live off-list gift only (`42501`).
+- Owner: hidden until `claims_revealed_to_owner(wishlist)` (same rule as claim
+  reveal), via `gift_visible_to`; the inline owner clause of the Gift read
+  policy skips off-list rows. Owners can't insert, update, remove
+  (`is_gift_owner` is false), restrict or upload photos for them.
+- No other claims (`can_claim_gift` false; `validate_claim` raises `23514`).
+- Releasing the claim deletes the gift (`purge_released_removed_gift`).
+  `remove_wishlist` marks it removed like any claimed gift.
 
 ## Gift Removal
 No direct `DELETE` on `Gift` or `Wishlist`. Owners call (security definer, 42501

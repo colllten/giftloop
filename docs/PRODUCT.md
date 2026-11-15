@@ -65,6 +65,18 @@ On someone else's wishlist, **Claim this gift** with a quantity. **My claims**
   see it as **Removed by {owner}** until they release it. The owner sees it
   disappear either way.
 
+## Off-list Gifts
+Bought something that isn't on the list? On someone else's wishlist, **Giving
+something not on the list?** records it (name, price, links, notes) under
+**Not on the list**, already claimed by you (optionally marked bought, name
+hidden).
+- Other members see it as covered; they can't claim it, but you can add them
+  as co-buyers.
+- The owner sees it ("Not on your list") only after the reveal, same as
+  claims. They can't edit, remove or copy it.
+- Only you (the claim creator) edit its details. **Remove gift** (releasing
+  the claim) deletes it for everyone.
+
 ## Deleting an Account
 **Profile → Delete my account** (`/account/delete`). Type your username to confirm.
 - Groups you own: pick a new owner, or leave it on **Automatic** (oldest admin,

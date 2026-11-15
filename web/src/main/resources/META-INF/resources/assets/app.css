@@ -200,6 +200,7 @@ details form { margin-top: var(--space-4); }
 }
 .chip-mine { background: var(--color-claimed); color: var(--color-on-claimed); }
 .chip-taken { color: var(--color-text-muted); border: 1px dashed var(--color-border-strong); }
+.chip-off-list { background: var(--color-highlight); color: var(--color-on-highlight); }
 
 /* ---------- Layout bits ---------- */
 .avatar {

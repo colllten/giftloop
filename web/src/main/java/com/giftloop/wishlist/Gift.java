@@ -23,10 +23,20 @@ import java.util.UUID;
  * @param removed      the owner removed it; only its claimers still see it
  * @param claims       claims the caller may see, or null when claims are hidden (owner before reveal)
  * @param imagePath    photo at {@code <owner>/<gift>/<file>} in {@code gift-images}, or null
+ * @param offList      a giver added it (not on the owner's list); its one claim is the giver's
  */
 public record Gift(UUID id, String name, BigDecimal price, List<String> links, int quantity, String notes,
                    boolean visibleToAll, Set<UUID> viewerIds, boolean removed, GiftClaims claims,
-                   String imagePath) {
+                   String imagePath, boolean offList) {
+
+    /**
+     * Whether the caller added this off-list gift (created its claim) and may edit its details.
+     *
+     * @return true for the giver of a live off-list gift
+     */
+    public boolean editableByGiver() {
+        return offList && !removed && claims != null && claims.hasMine() && claims.myClaim().callerIsCreator();
+    }
 
     /**
      * App URL of the photo (served by {@link GiftImageResource}).

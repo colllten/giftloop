@@ -1,0 +1,41 @@
+{! Off-list gift form: a giver adding (or editing) a gift that isn't on the
+   list. Param: form (OffListFormView). Swaps itself on errors; on success the
+   server re-targets #wishlist-body. !}
+<form class="off-list-form" hx-post="{form.action}" hx-target="this" hx-swap="outerHTML">
+  {#csrf /}
+  <div class="field">
+    <label for="{form.key}-name">What is it?</label>
+    <input id="{form.key}-name" name="name" type="text" maxlength="200" required value="{form.form.gift.name ?: ''}"
+           {#if form.error('name')}aria-invalid="true" aria-describedby="{form.key}-name-error"{/if}>
+    {#if form.error('name')}<p id="{form.key}-name-error" class="error" role="alert">{form.error('name')}</p>{/if}
+  </div>
+  <div class="field">
+    <label for="{form.key}-price">Price (optional)</label>
+    <input id="{form.key}-price" name="price" type="text" inputmode="decimal" value="{form.form.gift.price ?: ''}"
+           {#if form.error('price')}aria-invalid="true" aria-describedby="{form.key}-price-error"{/if}>
+    {#if form.error('price')}<p id="{form.key}-price-error" class="error" role="alert">{form.error('price')}</p>{/if}
+  </div>
+  <div class="field">
+    <label for="{form.key}-links">Links <span class="hint">Optional. One per line.</span></label>
+    <textarea id="{form.key}-links" name="links" rows="2"
+              {#if form.error('links')}aria-invalid="true" aria-describedby="{form.key}-links-error"{/if}>{form.form.gift.links ?: ''}</textarea>
+    {#if form.error('links')}<p id="{form.key}-links-error" class="error" role="alert">{form.error('links')}</p>{/if}
+  </div>
+  <div class="field">
+    <label for="{form.key}-notes">Notes <span class="hint">Optional. Size, color, anything others should know.</span></label>
+    <textarea id="{form.key}-notes" name="notes" rows="2" maxlength="1000"
+              {#if form.error('notes')}aria-invalid="true" aria-describedby="{form.key}-notes-error"{/if}>{form.form.gift.notes ?: ''}</textarea>
+    {#if form.error('notes')}<p id="{form.key}-notes-error" class="error" role="alert">{form.error('notes')}</p>{/if}
+  </div>
+  {#if form.isEdit}
+  <p class="row">
+    <button type="submit">Save gift</button>
+    <a class="button" href="/wishlists/{form.wishlistId}">Cancel</a>
+  </p>
+  {#else}
+  <label class="choice"><input type="checkbox" name="bought"{#if form.form.bought} checked{/if}> I've already bought it</label>
+  <label class="choice"><input type="checkbox" name="anonymous"{#if form.form.anonymous} checked{/if}> Hide my name from others in the group</label>
+  <p class="hint">{#if form.revealed}{form.ownerName} can see claims on this list, so they'll see this too.{#else}{form.ownerName} won't see this until the event is over.{/if}</p>
+  <button class="primary" type="submit">Add gift</button>
+  {/if}
+</form>

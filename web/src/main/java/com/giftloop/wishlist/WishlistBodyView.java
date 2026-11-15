@@ -9,8 +9,10 @@ import java.util.List;
  * @param addForm  add-gift form (owner only; null for others)
  * @param notice   confirmation to show, or null
  * @param filter   claim filter in effect ({@link GiftFilter#ALL} when claims are hidden from the caller)
+ * @param offListForm form to record a gift that isn't on the list (non-owners only; null for the owner)
  */
-public record WishlistBodyView(WishlistDetail wishlist, GiftFormView addForm, String notice, GiftFilter filter) {
+public record WishlistBodyView(WishlistDetail wishlist, GiftFormView addForm, String notice, GiftFilter filter,
+                               OffListFormView offListForm) {
 
     /**
      * View with a blank add form for the owner and no filter.
@@ -34,8 +36,29 @@ public record WishlistBodyView(WishlistDetail wishlist, GiftFormView addForm, St
      */
     public static WishlistBodyView of(WishlistDetail wishlist, String notice, GiftFilter requested) {
         GiftFilter filter = wishlist.claimsVisibleToCaller() ? requested : GiftFilter.ALL;
-        return new WishlistBodyView(wishlist, wishlist.callerIsOwner() ? GiftFormView.add(wishlist) : null,
-                notice, filter);
+        boolean owner = wishlist.callerIsOwner();
+        return new WishlistBodyView(wishlist, owner ? GiftFormView.add(wishlist) : null, notice, filter,
+                owner ? null : OffListFormView.add(wishlist));
+    }
+
+    /**
+     * Same view with a different add form (auto-filled from a shared link).
+     *
+     * @param form owner's add form
+     * @return view
+     */
+    public WishlistBodyView withAddForm(GiftFormView form) {
+        return new WishlistBodyView(wishlist, form, notice, filter, offListForm);
+    }
+
+    /**
+     * Same view with a different off-list form (re-shown with errors).
+     *
+     * @param form off-list form
+     * @return view
+     */
+    public WishlistBodyView withOffListForm(OffListFormView form) {
+        return new WishlistBodyView(wishlist, addForm, notice, filter, form);
     }
 
     /**
@@ -98,12 +121,39 @@ public record WishlistBodyView(WishlistDetail wishlist, GiftFormView addForm, St
     }
 
     /**
-     * Gifts to list under the current filter.
+     * Whether the owner put anything on the list (off-list gifts don't count).
+     *
+     * @return true if there is at least one gift from the owner
+     */
+    public boolean hasListGifts() {
+        return wishlist.gifts().stream().anyMatch(g -> !g.offList());
+    }
+
+    /**
+     * The owner's gifts to list under the current filter.
      *
      * @return matching gifts, oldest first
      */
     public List<Gift> shownGifts() {
-        return wishlist.gifts().stream().filter(filter::matches).toList();
+        return wishlist.gifts().stream().filter(g -> !g.offList()).filter(filter::matches).toList();
+    }
+
+    /**
+     * Gifts givers added that aren't on the list, under the current filter.
+     *
+     * @return matching off-list gifts, oldest first
+     */
+    public List<Gift> shownOffListGifts() {
+        return wishlist.gifts().stream().filter(Gift::offList).filter(filter::matches).toList();
+    }
+
+    /**
+     * Whether the filter hides everything, so the empty-filter message shows.
+     *
+     * @return true if no gift (on or off the list) matches
+     */
+    public boolean nothingShown() {
+        return wishlist.gifts().stream().noneMatch(filter::matches);
     }
 
     /**

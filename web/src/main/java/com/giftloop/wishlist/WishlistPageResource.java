@@ -133,6 +133,14 @@ public class WishlistPageResource {
          * @return fragment
          */
         static native TemplateInstance pastGifts(PastGiftsView view);
+
+        /**
+         * Off-list gift form fragment (giver adding or editing).
+         *
+         * @param view form data
+         * @return fragment
+         */
+        static native TemplateInstance offListForm(OffListFormView view);
     }
 
     /**
@@ -168,7 +176,7 @@ public class WishlistPageResource {
         WishlistBodyView view = WishlistBodyView.of(wishlist, null, GiftFilter.of(show));
         if (add != null && !add.isBlank() && wishlist.callerIsOwner()) {
             GiftFormView form = autofilled(wishlist, null, GiftForm.empty(), Map.of(), add);
-            view = new WishlistBodyView(wishlist, form, null, view.filter());
+            view = view.withAddForm(form);
         }
         return Templates.wishlist(view);
     }
@@ -356,6 +364,91 @@ public class WishlistPageResource {
                                        @HeaderParam(HX_CURRENT_URL) String currentUrl) {
         wishlists.deleteGift(jwt, id, giftId);
         return Templates.wishlistBody(WishlistBodyView.of(load(id), "Gift removed.", GiftFilter.fromUrl(currentUrl)));
+    }
+
+    /**
+     * Records a gift the caller is giving that isn't on the list (not the owner). It is claimed
+     * for them; the owner sees it only once claims are revealed.
+     *
+     * @param id         wishlist id
+     * @param name       what it is
+     * @param price      price (optional)
+     * @param links      links, one per line (optional)
+     * @param notes      notes (optional)
+     * @param anonymous  {@code on} to hide the caller's name
+     * @param bought     {@code on} if already bought
+     * @param currentUrl page URL (HTMX), to keep its claim filter
+     * @return refreshed body, or the form with errors
+     * @throws ForbiddenException if the caller owns the wishlist
+     */
+    @POST
+    @Path("wishlists/{id}/off-list")
+    @Operation(hidden = true)
+    public Response addOffListGift(@PathParam("id") UUID id, @RestForm String name, @RestForm String price,
+                                   @RestForm String links, @RestForm String notes, @RestForm String anonymous,
+                                   @RestForm String bought, @HeaderParam(HX_CURRENT_URL) String currentUrl) {
+        WishlistDetail wishlist = load(id);
+        if (wishlist.callerIsOwner()) {
+            throw new ForbiddenException();
+        }
+        OffListForm form = OffListForm.of(name, price, links, notes, anonymous, bought);
+        Map<String, String> errors = form.validate();
+        if (!errors.isEmpty()) {
+            return Response.ok(Templates.offListForm(OffListFormView.of(wishlist, null, form, errors))).build();
+        }
+        wishlists.addOffListGift(jwt, id, form);
+        String notice = wishlist.claimsRevealed()
+                ? "Added. Everyone in the group can see it, including " + wishlist.ownerName() + "."
+                : "Added. Others in the group can see it's covered; " + wishlist.ownerName() + " can't.";
+        return body(id, notice, currentUrl);
+    }
+
+    /**
+     * Edit form for an off-list gift (the giver who added it).
+     *
+     * @param id     wishlist id
+     * @param giftId gift id
+     * @return form fragment
+     * @throws NotFoundException  if the gift is missing or hidden from the caller
+     * @throws ForbiddenException if the caller didn't add it
+     */
+    @GET
+    @Path("wishlists/{id}/gifts/{giftId}/off-list/edit")
+    @Operation(hidden = true)
+    public TemplateInstance editOffListGift(@PathParam("id") UUID id, @PathParam("giftId") UUID giftId) {
+        WishlistDetail wishlist = load(id);
+        Gift gift = wishlist.gift(giftId).orElseThrow(NotFoundException::new);
+        if (!gift.editableByGiver()) {
+            throw new ForbiddenException();
+        }
+        return Templates.offListForm(OffListFormView.edit(wishlist, gift));
+    }
+
+    /**
+     * Saves an off-list gift's details (the giver who added it).
+     *
+     * @param id         wishlist id
+     * @param giftId     gift id
+     * @param name       what it is
+     * @param price      price (optional)
+     * @param links      links, one per line (optional)
+     * @param notes      notes (optional)
+     * @param currentUrl page URL (HTMX), to keep its claim filter
+     * @return refreshed body, or the form with errors
+     */
+    @POST
+    @Path("wishlists/{id}/gifts/{giftId}/off-list")
+    @Operation(hidden = true)
+    public Response updateOffListGift(@PathParam("id") UUID id, @PathParam("giftId") UUID giftId,
+                                      @RestForm String name, @RestForm String price, @RestForm String links,
+                                      @RestForm String notes, @HeaderParam(HX_CURRENT_URL) String currentUrl) {
+        OffListForm form = OffListForm.of(name, price, links, notes, null, null);
+        Map<String, String> errors = form.validate();
+        if (!errors.isEmpty()) {
+            return Response.ok(Templates.offListForm(OffListFormView.of(load(id), giftId, form, errors))).build();
+        }
+        wishlists.updateOffListGift(jwt, giftId, form);
+        return body(id, "Gift saved.", currentUrl);
     }
 
     /**

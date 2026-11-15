@@ -19,18 +19,36 @@
   {/for}
 </nav>
 {/if}
-{#if w.gifts.isEmpty}
+{#if !view.hasListGifts}
 <p class="notice">{#if w.callerIsOwner}Your wishlist is empty. Add your first gift.{#else}There's nothing here for you yet.{/if}</p>
-{#else if view.shownGifts.isEmpty}
+{#else if view.nothingShown}
 <p class="notice">{view.emptyFilterMessage}</p>
-{#else}
+{/if}
+{#if !view.shownGifts.isEmpty}
 <ul class="gift-list">
   {#for gift in view.shownGifts}
   {#giftcard w=w gift=gift /}
   {/for}
 </ul>
 {/if}
+{#if !view.shownOffListGifts.isEmpty}
+<h3 id="off-list-heading">Not on the list</h3>
+<p class="hint">{#if w.callerIsOwner}Gifts people got you that weren't on your list.{#else}Gifts people are giving {w.ownerName} that weren't on the list.{/if}</p>
+<ul class="gift-list" aria-labelledby="off-list-heading">
+  {#for gift in view.shownOffListGifts}
+  {#giftcard w=w gift=gift /}
+  {/for}
+</ul>
+{/if}
 </section>
+
+{#if view.offListForm}
+<section class="card wishlist-add" id="off-list" aria-labelledby="off-list-add-heading">
+<h2 id="off-list-add-heading">Giving something not on the list?</h2>
+<p class="hint">Add it here so no one else buys the same thing.</p>
+{#offlistform form=view.offListForm /}
+</section>
+{/if}
 
 {#if view.addForm}
 <section class="card wishlist-add" id="add-gift" aria-labelledby="add-heading">

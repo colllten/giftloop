@@ -101,6 +101,7 @@ media queries because they can't read custom properties.
 | `.gift-photo` | Gift photo thumbnail (contained, bordered). Decorative `alt=""` on cards; `.gift-photo-preview` in the form |
 | `.autofill` / `.autofill-row` / `.autofill-notice` | "Paste a link" field + Auto-fill button at the top of the gift form; status text while loading |
 | `.chip.chip-visibility` | Who can see a gift, as text ("Everyone", "Shared with 2 people"). Owner only |
+| `.chip.chip-off-list` | "Not on the list" / "Not on your list" on gifts a giver added |
 | `.visibility` / `.viewer-picker` | Gift visibility fieldset; member checkboxes show only when "Only people I pick" is chosen |
 | `.wishlist-layout` | Wishlist page grid: `.wishlist-gifts`, `.wishlist-add`, `.wishlist-settings` |
 

@@ -1,6 +1,7 @@
 {! The caller's claim and what they can change. Any participant marks units
    bought; the rest is in "Manage". Params: claim (GiftClaim),
-   giftName, removed (gift removed by its owner), manageCoBuyers (show co-buyer
+   giftName, removed (gift removed by its owner), offList (a giver added it;
+   releasing deletes it), manageCoBuyers (show co-buyer
    controls), coBuyers (members the creator can still add), base (claim URL), target / swap (HTMX
    swap for responses), view ('' on the wishlist, 'claims' on My claims). !}
 <div class="my-claim">
@@ -79,10 +80,10 @@
 
     {#if claim.callerIsCreator}
     <form hx-post="{base}/delete" hx-target="{target}" hx-swap="{swap}"
-          hx-confirm="Release your claim on {giftName}?{#if claim.purchased > 0} You marked {claim.purchased} as bought.{/if}{#if !claim.others.isEmpty} Your co-buyers are removed too.{/if}">
+          hx-confirm="{#if offList && !removed}Remove {giftName}? It's not on the list, so it goes away for everyone.{#else}Release your claim on {giftName}?{/if}{#if claim.purchased > 0} You marked {claim.purchased} as bought.{/if}{#if !claim.others.isEmpty} Your co-buyers are removed too.{/if}">
       {#csrf /}
       <input type="hidden" name="view" value="{view}">
-      <button type="submit" class="danger">Release claim</button>
+      <button type="submit" class="danger">{#if offList && !removed}Remove gift{#else}Release claim{/if}</button>
     </form>
     {#else}
     <form hx-post="{base}/participants/{claim.myUserId}/delete" hx-target="{target}" hx-swap="{swap}"

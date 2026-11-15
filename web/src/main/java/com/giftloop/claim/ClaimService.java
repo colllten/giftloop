@@ -234,14 +234,14 @@ public class ClaimService {
             record Row(UUID claimId, int quantity, int purchased, boolean creator, UUID giftId, String giftName,
                        BigDecimal price, List<String> links, int wanted, boolean giftRemoved,
                        UUID wishlistId, boolean wishlistRemoved, String ownerName, UUID eventId, String eventName,
-                       LocalDate endDate, boolean past, String groupName) {
+                       LocalDate endDate, boolean past, String groupName, boolean offList) {
             }
             List<Row> rows = new ArrayList<>();
             try (PreparedStatement s = c.prepareStatement("""
                     select c.id as claim_id, c.quantity, c.purchased_quantity,
                            private.is_claim_creator(c.id) as is_creator,
                            g.id as gift_id, g.name as gift_name, g.price, g.links, g.quantity as wanted,
-                           g.removed_at is not null as gift_removed,
+                           g.removed_at is not null as gift_removed, g.is_off_list,
                            w.id as wishlist_id, w.removed_at is not null as wishlist_removed,
                            coalesce(op.display_name, op.username::text) as owner_name,
                            e.id as event_id, e.name as event_name, e.end_date,
@@ -268,7 +268,7 @@ public class ClaimService {
                             r.getBoolean("wishlist_removed"), ownerName(r.getString("owner_name")),
                             r.getObject("event_id", UUID.class), r.getString("event_name"),
                             r.getObject("end_date", LocalDate.class), r.getBoolean("is_past"),
-                            r.getString("group_name")));
+                            r.getString("group_name"), r.getBoolean("is_off_list")));
                 }
             }
             Map<UUID, List<Participant>> participants =
@@ -279,7 +279,7 @@ public class ClaimService {
                             row.creator()),
                     row.giftId(), row.giftName(), row.price(), row.links(), row.wanted(), row.giftRemoved(),
                     row.wishlistId(), row.wishlistRemoved(), row.ownerName(), row.eventId(), row.eventName(),
-                    row.endDate(), row.past(), row.groupName())).toList();
+                    row.endDate(), row.past(), row.groupName(), row.offList())).toList();
         });
         Map<UUID, MyClaim.EventClaims> byEvent = new LinkedHashMap<>();
         for (MyClaim claim : claims) {

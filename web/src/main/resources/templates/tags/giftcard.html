@@ -7,7 +7,8 @@
   <div class="gift-head">
     <h3 class="gift-name">{gift.name}</h3>
     <span class="gift-chips">
-      {#if w.callerIsOwner}<span class="chip chip-visibility">{gift.visibilityLabel}</span>{/if}
+      {#if gift.offList}<span class="chip chip-off-list">{#if w.callerIsOwner}Not on your list{#else}Not on the list{/if}</span>
+      {#else if w.callerIsOwner}<span class="chip chip-visibility">{gift.visibilityLabel}</span>{/if}
       {#if gift.removed}
       <span class="chip chip-taken">Removed by {w.ownerName}</span>
       {#else if gift.claimsShown && gift.claims.statusLabel(gift.quantity)}
@@ -46,10 +47,10 @@
   {#if !w.callerIsOwner}
     {#if gift.claimsShown && gift.claims.hasMine}
     {#let claim=gift.claims.myClaim}
-    {#claimmanage claim=claim giftName=gift.name removed=gift.removed manageCoBuyers=true coBuyers=w.coBuyersFor(claim)
+    {#claimmanage claim=claim giftName=gift.name removed=gift.removed offList=gift.offList manageCoBuyers=true coBuyers=w.coBuyersFor(claim)
                   base=w.claimUrl(gift, claim) target=gift.target swap="outerHTML" view="" /}
     {/let}
-    {#else if !gift.removed}
+    {#else if !gift.removed && !gift.offList}
     <details class="claim-start">
       <summary>Claim this gift</summary>
       <form hx-post="/wishlists/{w.id}/gifts/{gift.id}/claims" hx-target="#gift-{gift.id}" hx-swap="outerHTML"
@@ -67,7 +68,12 @@
     </details>
     {/if}
   {/if}
-  {#if w.callerIsOwner}
+  {#if gift.editableByGiver}
+  <div class="gift-actions">
+    <button type="button" hx-get="/wishlists/{w.id}/gifts/{gift.id}/off-list/edit" hx-target="closest li" hx-swap="innerHTML">Edit details<span class="visually-hidden"> of {gift.name}</span></button>
+  </div>
+  {/if}
+  {#if w.callerIsOwner && !gift.offList}
   <div class="gift-actions">
     <button type="button" hx-get="/wishlists/{w.id}/gifts/{gift.id}/edit" hx-target="closest li" hx-swap="innerHTML">Edit</button>
     <form hx-post="/wishlists/{w.id}/gifts/{gift.id}/delete" hx-target="#wishlist-body"

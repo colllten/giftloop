@@ -237,6 +237,68 @@ public class WishlistService {
     }
 
     /**
+     * Records a gift the caller is giving that isn't on the list (not the owner). The database
+     * creates it and claims it for the caller; anonymity and "bought" are set in the same
+     * transaction, so the caller's name is never shown if they hid it.
+     *
+     * @param jwt        caller's verified token
+     * @param wishlistId wishlist id
+     * @param form       validated form
+     * @return new gift id
+     * @throws ForbiddenException if the wishlist is missing, removed, the caller's own, or in another group
+     */
+    public UUID addOffListGift(JsonWebToken jwt, UUID wishlistId, OffListForm form) {
+        UUID id = run(jwt, c -> {
+            UUID giftId;
+            try (PreparedStatement s = c.prepareStatement("select private.add_off_list_gift(?, ?, ?, ?, ?)")) {
+                s.setObject(1, wishlistId);
+                bindOffListFields(c, s, 2, form);
+                try (ResultSet r = s.executeQuery()) {
+                    r.next();
+                    giftId = r.getObject(1, UUID.class);
+                }
+            }
+            if (form.anonymous()) {
+                try (PreparedStatement s = prepare(c, """
+                        update "ClaimParticipant" set is_anonymous = true
+                        where user_id = auth.uid() and claim_id = (select id from "Claim" where gift_id = ?)""",
+                        giftId)) {
+                    s.executeUpdate();
+                }
+            }
+            if (form.bought()) {
+                try (PreparedStatement s = prepare(c,
+                        "select private.set_claim_purchased((select id from \"Claim\" where gift_id = ?), 1)", giftId)) {
+                    s.execute();
+                }
+            }
+            return giftId;
+        });
+        LOG.infof("User %s added off-list gift %s to wishlist %s", jwt.getSubject(), id, wishlistId);
+        return id;
+    }
+
+    /**
+     * Edits an off-list gift's name, price, links and notes (the giver who added it).
+     *
+     * @param jwt    caller's verified token
+     * @param giftId gift id
+     * @param form   validated form
+     * @throws ForbiddenException if it isn't a live off-list gift the caller added
+     */
+    public void updateOffListGift(JsonWebToken jwt, UUID giftId, OffListForm form) {
+        run(jwt, c -> {
+            try (PreparedStatement s = c.prepareStatement("select private.update_off_list_gift(?, ?, ?, ?, ?)")) {
+                s.setObject(1, giftId);
+                bindOffListFields(c, s, 2, form);
+                s.execute();
+                return null;
+            }
+        });
+        LOG.infof("User %s updated off-list gift %s", jwt.getSubject(), giftId);
+    }
+
+    /**
      * The caller's live gifts on their other live wishlists, newest event first, leaving out names
      * already on the target list.
      *
@@ -254,6 +316,7 @@ public class WishlistService {
                     join "Wishlist" w on w.id = g.wishlist_id
                     join "Event" e on e.id = w.event_id
                     where w.owner_id = auth.uid() and w.id <> ? and w.removed_at is null and g.removed_at is null
+                      and not g.is_off_list
                       and not exists (select 1 from "Gift" t
                                       where t.wishlist_id = ? and t.removed_at is null
                                         and lower(t.name) = lower(g.name))
@@ -297,6 +360,7 @@ public class WishlistService {
                     from "Gift" g
                     join "Wishlist" w on w.id = g.wishlist_id
                     where g.id = ? and w.id <> ? and w.owner_id = auth.uid() and g.removed_at is null
+                      and not g.is_off_list
                       and not exists (select 1 from "Gift" t
                                       where t.wishlist_id = ? and t.removed_at is null
                                         and lower(t.name) = lower(g.name))
@@ -387,6 +451,16 @@ public class WishlistService {
         return first + 6;
     }
 
+    /** Binds name, price, links and notes of an off-list gift from {@code first}. */
+    private static void bindOffListFields(Connection c, PreparedStatement s, int first, OffListForm form)
+            throws SQLException {
+        List<String> links = form.linkList();
+        s.setString(first, form.name());
+        s.setBigDecimal(first + 1, form.priceValue());
+        s.setArray(first + 2, links.isEmpty() ? null : c.createArrayOf("text", links.toArray()));
+        s.setString(first + 3, form.notes());
+    }
+
     /** Replaces a gift's allowlist; shared-with-everyone gifts keep none. */
     private static void replaceViewers(Connection c, UUID giftId, GiftForm form) throws SQLException {
         try (PreparedStatement s = prepare(c, "delete from \"GiftViewer\" where gift_id = ?", giftId)) {
@@ -409,12 +483,12 @@ public class WishlistService {
     private static List<Gift> gifts(Connection c, UUID me, UUID wishlistId, Map<UUID, Set<UUID>> viewers,
                                     boolean withClaims) throws SQLException {
         record Row(UUID id, String name, BigDecimal price, List<String> links, int quantity, String notes,
-                   boolean visibleToAll, boolean removed, String imagePath) {
+                   boolean visibleToAll, boolean removed, String imagePath, boolean offList) {
         }
         List<Row> rows = new ArrayList<>();
         try (PreparedStatement s = prepare(c, """
                 select id, name, price, links, quantity, notes, is_visible_to_all, removed_at is not null as removed,
-                       image_path
+                       image_path, is_off_list
                 from "Gift"
                 where wishlist_id = ?
                 order by created_at, id""", wishlistId);
@@ -422,7 +496,8 @@ public class WishlistService {
             while (r.next()) {
                 rows.add(new Row(r.getObject("id", UUID.class), r.getString("name"), r.getBigDecimal("price"),
                         links(r.getArray("links")), r.getInt("quantity"), r.getString("notes"),
-                        r.getBoolean("is_visible_to_all"), r.getBoolean("removed"), r.getString("image_path")));
+                        r.getBoolean("is_visible_to_all"), r.getBoolean("removed"), r.getString("image_path"),
+                        r.getBoolean("is_off_list")));
             }
         }
         Map<UUID, GiftClaims> claims = withClaims
@@ -430,7 +505,7 @@ public class WishlistService {
                 : Map.of();
         return rows.stream().map(row -> new Gift(row.id(), row.name(), row.price(), row.links(), row.quantity(),
                 row.notes(), row.visibleToAll(), Set.copyOf(viewers.getOrDefault(row.id(), Set.of())), row.removed(),
-                withClaims ? claims.get(row.id()) : null, row.imagePath())).toList();
+                withClaims ? claims.get(row.id()) : null, row.imagePath(), row.offList())).toList();
     }
 
     private static List<String> links(Array array) throws SQLException {
