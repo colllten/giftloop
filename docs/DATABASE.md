@@ -67,6 +67,9 @@ roles (`admin` ↔ `member`). Delete on `GroupUser` allows leaving (not the
 owner), owner removing anyone else, admins removing plain members.
 `private.is_group_admin` counts the owner as an admin.
 
+`Event`: any member creates; only the owner/admin updates (`name`, `end_date`)
+or deletes, not the creator. Deleting cascades wishlists, gifts and claims.
+
 ## Gift Visibility
 A member sees a gift if any of these hold (`private.gift_visible_to`):
 - they own the wishlist;

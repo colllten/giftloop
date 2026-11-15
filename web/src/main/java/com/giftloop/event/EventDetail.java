@@ -14,9 +14,10 @@ import java.util.UUID;
  * @param groupName    owning group's name
  * @param wishlists    members' wishlists, the caller's first
  * @param myWishlistId the caller's wishlist, or null if they have none yet
+ * @param canManage    whether the caller may edit or delete the event (group owner/admin)
  */
 public record EventDetail(UUID id, String name, LocalDate endDate, UUID groupId, String groupName,
-                          List<EventWishlist> wishlists, UUID myWishlistId) {
+                          List<EventWishlist> wishlists, UUID myWishlistId, boolean canManage) {
 
     /**
      * End date for display.

@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Group owners and admins can edit (name, last day) and delete events from the
+  event page. Event creators who are plain members no longer can (RLS).
 - Sign-up no longer reveals whether an email is registered: it emails a 6-digit
   code (sign-in code for existing accounts) and sets the password after the code
   is verified. Requires Supabase "Confirm email" on in hosted projects.

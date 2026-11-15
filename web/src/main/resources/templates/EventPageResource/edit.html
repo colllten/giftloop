@@ -1,0 +1,10 @@
+{#include base}
+{#title}Edit {view.name} · GiftLoop{/title}
+{#header}{#appheader nav=true current='' /}{/header}
+{#main}
+<p class="hint"><a href="/groups/{view.groupId}">{view.groupName}</a> › <a href="/events/{view.eventId}">{view.name}</a></p>
+<h1>Edit event</h1>
+<p>Changes apply for everyone in {view.groupName}. Moving the last day into the past lets wishlist owners see who claimed what.</p>
+{#include EventPageResource/eventForm /}
+{/main}
+{/include}
