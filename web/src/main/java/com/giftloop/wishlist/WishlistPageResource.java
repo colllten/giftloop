@@ -149,14 +149,22 @@ public class WishlistPageResource {
      *
      * @param id   wishlist id
      * @param show claim filter ({@code needed}, {@code claimed}, {@code mine}); ignored while claims are hidden
+     * @param add  link to auto-fill the add form with (share target); owner only, ignored for others
      * @return page
      * @throws NotFoundException if missing or the caller is not a member of its group
      */
     @GET
     @Path("wishlists/{id}")
     @Operation(hidden = true)
-    public TemplateInstance wishlistPage(@PathParam("id") UUID id, @QueryParam("show") String show) {
-        return Templates.wishlist(WishlistBodyView.of(load(id), null, GiftFilter.of(show)));
+    public TemplateInstance wishlistPage(@PathParam("id") UUID id, @QueryParam("show") String show,
+                                         @QueryParam("add") String add) {
+        WishlistDetail wishlist = load(id);
+        WishlistBodyView view = WishlistBodyView.of(wishlist, null, GiftFilter.of(show));
+        if (add != null && !add.isBlank() && wishlist.callerIsOwner()) {
+            GiftFormView form = autofilled(wishlist, null, GiftForm.empty(), Map.of(), add);
+            view = new WishlistBodyView(wishlist, form, null, view.filter());
+        }
+        return Templates.wishlist(view);
     }
 
     /**

@@ -249,7 +249,7 @@ public record GiftForm(String name, String price, String quantity, String links,
      * @param link stripped link
      * @return link with a scheme
      */
-    static String withScheme(String link) {
+    public static String withScheme(String link) {
         if (link.startsWith("//")) {
             return "https:" + link;
         }
@@ -312,7 +312,7 @@ public record GiftForm(String name, String price, String quantity, String links,
     }
 
     /** Absolute http(s) URL with a dotted host (rules out typos like "socks"), short enough to store. */
-    static boolean isWebLink(String link) {
+    public static boolean isWebLink(String link) {
         if (link.length() > LINK_LENGTH_MAX) {
             return false;
         }

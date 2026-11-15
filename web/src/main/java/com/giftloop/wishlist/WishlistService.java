@@ -327,6 +327,45 @@ public class WishlistService {
     }
 
     /**
+     * The caller's live wishlists for events that haven't ended (no end date, or ending today or
+     * later), soonest first. Used to pick where a shared link goes.
+     *
+     * @param jwt caller's verified token
+     * @return open wishlists
+     */
+    public List<OpenWishlist> openWishlists(JsonWebToken jwt) {
+        return run(jwt, c -> {
+            try (PreparedStatement s = c.prepareStatement("""
+                    select w.id, e.name as event_name, g.name as group_name, e.end_date
+                    from "Wishlist" w
+                    join "Event" e on e.id = w.event_id
+                    join "Group" g on g.id = e.group_id
+                    where w.owner_id = auth.uid() and w.removed_at is null
+                      and (e.end_date is null or e.end_date >= current_date)
+                    order by e.end_date nulls last, e.created_at""");
+                 ResultSet r = s.executeQuery()) {
+                List<OpenWishlist> out = new ArrayList<>();
+                while (r.next()) {
+                    out.add(new OpenWishlist(r.getObject("id", UUID.class), r.getString("event_name"),
+                            r.getString("group_name"), r.getObject("end_date", LocalDate.class)));
+                }
+                return out;
+            }
+        });
+    }
+
+    /**
+     * A wishlist a shared link can go to.
+     *
+     * @param id        wishlist id
+     * @param eventName event name
+     * @param groupName group name
+     * @param endDate   event's last day, or null
+     */
+    public record OpenWishlist(UUID id, String eventName, String groupName, LocalDate endDate) {
+    }
+
+    /**
      * Outcome of {@link #copyGifts}.
      *
      * @param copied        gifts copied

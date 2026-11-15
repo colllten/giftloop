@@ -1,0 +1,18 @@
+{#include base}
+{#title}Add a gift · GiftLoop{/title}
+{#header}{#appheader nav=true current='' /}{/header}
+{#main}
+<h1>Add a gift</h1>
+<p class="hint shared-link">{link.linkLabel}</p>
+{#if lists.isEmpty}
+<p>You don't have an open wishlist yet. Start one from an event in <a href="/">your groups</a>, then share the link again.</p>
+{#else}
+<p>Which wishlist should it go on?</p>
+<ul class="share-choices">
+  {#for c in lists}
+  <li><a class="button" href="{c.href}">{c.wishlist.eventName} <span class="hint">{c.wishlist.groupName}</span></a></li>
+  {/for}
+</ul>
+{/if}
+{/main}
+{/include}
