@@ -117,9 +117,9 @@ public record GiftForm(String name, String price, String quantity, String links,
         if (preview != null && newPrice == null && preview.price() != null) {
             newPrice = preview.price().toPlainString();
         }
-        String chosen = preview != null && preview.url() != null ? preview.url().toString() : link;
+        String chosen = Links.tidy(preview != null && preview.url() != null ? preview.url().toString() : link);
         List<String> current = new ArrayList<>(linkList());
-        boolean listed = current.contains(chosen) || current.contains(link);
+        boolean listed = current.contains(chosen) || current.contains(Links.tidy(link));
         if (!listed && current.size() < LINKS_MAX && isWebLink(chosen)) {
             current.add(chosen);
         }
@@ -231,13 +231,15 @@ public record GiftForm(String name, String price, String quantity, String links,
     }
 
     /**
-     * Non-blank links, one per line, in order, with {@code https://} added where no scheme was typed.
+     * Non-blank links, one per line, in order, with {@code https://} added where no scheme was typed
+     * and tracking parameters removed ({@link Links#tidy}).
      *
      * @return links (possibly empty)
      */
     public List<String> linkList() {
         return links == null ? List.of()
-                : links.lines().map(String::strip).filter(l -> !l.isEmpty()).map(GiftForm::withScheme).toList();
+                : links.lines().map(String::strip).filter(l -> !l.isEmpty()).map(GiftForm::withScheme)
+                        .map(Links::tidy).toList();
     }
 
     /**
