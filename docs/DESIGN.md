@@ -97,7 +97,9 @@ media queries because they can't read custom properties.
 | `.site-header` / `.site-nav` | Site header and signed-in nav. Current link is underlined |
 | `.page-head` | Title block above a wide page's content |
 | `.group-layout` | Group page grid: `.group-events`, `.group-members`, `.group-invite`, `.group-settings` |
-| `.gift-list` / `.gift` | Gift cards: `.gift-head`, `.gift-meta`, `.gift-notes`, `.gift-links`, `.gift-actions` |
+| `.gift-list` / `.gift` | Gift cards: `.gift-summary` (photo + `.gift-body`), `.gift-head`, `.gift-meta`, `.gift-notes`, `.gift-links`, `.gift-actions` |
+| `.gift-photo` | Gift photo thumbnail (contained, bordered). Decorative `alt=""` on cards; `.gift-photo-preview` in the form |
+| `.autofill` / `.autofill-row` / `.autofill-notice` | "Paste a link" field + Auto-fill button at the top of the gift form; status text while loading |
 | `.chip.chip-visibility` | Who can see a gift, as text ("Everyone", "Shared with 2 people"). Owner only |
 | `.visibility` / `.viewer-picker` | Gift visibility fieldset; member checkboxes show only when "Only people I pick" is chosen |
 | `.wishlist-layout` | Wishlist page grid: `.wishlist-gifts`, `.wishlist-add`, `.wishlist-settings` |

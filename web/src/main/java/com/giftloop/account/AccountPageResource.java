@@ -5,6 +5,7 @@ import com.giftloop.profile.Profile;
 import com.giftloop.profile.ProfileService;
 import com.giftloop.security.RequiresOnboarding;
 import com.giftloop.security.SessionCookies;
+import com.giftloop.wishlist.GiftImageService;
 import com.giftloop.web.Redirects;
 import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.qute.TemplateInstance;
@@ -40,6 +41,7 @@ public class AccountPageResource {
     private final AccountService accounts;
     private final ProfileService profiles;
     private final AvatarService avatars;
+    private final GiftImageService giftImages;
     private final SessionCookies cookies;
 
     /**
@@ -49,14 +51,16 @@ public class AccountPageResource {
      * @param accounts account deletion
      * @param profiles profile access
      * @param avatars  avatar storage
+     * @param giftImages gift photo storage (deletes photos of gifts removed with the account)
      * @param cookies  session cookies
      */
     public AccountPageResource(JsonWebToken jwt, AccountService accounts, ProfileService profiles,
-                               AvatarService avatars, SessionCookies cookies) {
+                               AvatarService avatars, GiftImageService giftImages, SessionCookies cookies) {
         this.jwt = jwt;
         this.accounts = accounts;
         this.profiles = profiles;
         this.avatars = avatars;
+        this.giftImages = giftImages;
         this.cookies = cookies;
     }
 
@@ -134,6 +138,7 @@ public class AccountPageResource {
         }
         // The access token still verifies until it expires, so Storage RLS lets us remove the file.
         avatars.deleteFile(jwt, profile.avatarPath());
+        giftImages.sweep(jwt);
         return Redirects.to(headers, "/account/deleted").cookie(cookies.clear()).build();
     }
 

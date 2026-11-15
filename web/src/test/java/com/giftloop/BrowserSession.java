@@ -67,11 +67,32 @@ public final class BrowserSession {
      * @return response
      */
     public Response htmxMultipart(String path, Map<String, String> fields, byte[] fileBytes, String mimeType) {
+        return htmxMultipart(path, fields, "avatar", fileBytes, mimeType);
+    }
+
+    /**
+     * HTMX multipart POST with the CSRF token added. List values become repeated fields.
+     *
+     * @param path      path
+     * @param fields    text fields (String or List of String values)
+     * @param fileField name of the file field
+     * @param fileBytes file bytes, or null for no file
+     * @param mimeType  file MIME type
+     * @return response
+     */
+    public Response htmxMultipart(String path, Map<String, ?> fields, String fileField, byte[] fileBytes,
+                                  String mimeType) {
         ensureCsrf();
         RequestSpecification spec = request().header("HX-Request", "true").multiPart("csrf_token", csrfToken);
-        fields.forEach(spec::multiPart);
+        fields.forEach((name, value) -> {
+            if (value instanceof java.util.List<?> list) {
+                list.forEach(v -> spec.multiPart(name, String.valueOf(v)));
+            } else {
+                spec.multiPart(name, String.valueOf(value));
+            }
+        });
         if (fileBytes != null) {
-            spec.multiPart("avatar", "photo", fileBytes, mimeType);
+            spec.multiPart(fileField, "photo", fileBytes, mimeType);
         }
         Response response = spec.post(path);
         remember(response.asString());

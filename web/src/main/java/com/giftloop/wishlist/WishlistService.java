@@ -44,14 +44,17 @@ public class WishlistService {
     private static final Logger LOG = Logger.getLogger(WishlistService.class);
 
     private final RlsContext rls;
+    private final GiftImageService images;
 
     /**
      * Creates the service.
      *
-     * @param rls user-scoped DB access
+     * @param rls    user-scoped DB access
+     * @param images gift photo storage (cleans up photos of deleted gifts)
      */
-    public WishlistService(RlsContext rls) {
+    public WishlistService(RlsContext rls, GiftImageService images) {
         this.rls = rls;
+        this.images = images;
     }
 
     /**
@@ -151,6 +154,7 @@ public class WishlistService {
      */
     public void delete(JsonWebToken jwt, UUID wishlistId) {
         call(jwt, "select private.remove_wishlist(?)", wishlistId);
+        images.sweep(jwt);
         LOG.infof("User %s removed wishlist %s", jwt.getSubject(), wishlistId);
     }
 
@@ -226,6 +230,7 @@ public class WishlistService {
      */
     public void deleteGift(JsonWebToken jwt, UUID wishlistId, UUID giftId) {
         call(jwt, "select private.remove_gift(?)", giftId);
+        images.sweep(jwt);
         LOG.infof("User %s removed gift %s from wishlist %s", jwt.getSubject(), giftId, wishlistId);
     }
 
@@ -264,11 +269,12 @@ public class WishlistService {
     private static List<Gift> gifts(Connection c, UUID me, UUID wishlistId, Map<UUID, Set<UUID>> viewers,
                                     boolean withClaims) throws SQLException {
         record Row(UUID id, String name, BigDecimal price, List<String> links, int quantity, String notes,
-                   boolean visibleToAll, boolean removed) {
+                   boolean visibleToAll, boolean removed, String imagePath) {
         }
         List<Row> rows = new ArrayList<>();
         try (PreparedStatement s = prepare(c, """
-                select id, name, price, links, quantity, notes, is_visible_to_all, removed_at is not null as removed
+                select id, name, price, links, quantity, notes, is_visible_to_all, removed_at is not null as removed,
+                       image_path
                 from "Gift"
                 where wishlist_id = ?
                 order by created_at, id""", wishlistId);
@@ -276,7 +282,7 @@ public class WishlistService {
             while (r.next()) {
                 rows.add(new Row(r.getObject("id", UUID.class), r.getString("name"), r.getBigDecimal("price"),
                         links(r.getArray("links")), r.getInt("quantity"), r.getString("notes"),
-                        r.getBoolean("is_visible_to_all"), r.getBoolean("removed")));
+                        r.getBoolean("is_visible_to_all"), r.getBoolean("removed"), r.getString("image_path")));
             }
         }
         Map<UUID, GiftClaims> claims = withClaims
@@ -284,7 +290,7 @@ public class WishlistService {
                 : Map.of();
         return rows.stream().map(row -> new Gift(row.id(), row.name(), row.price(), row.links(), row.quantity(),
                 row.notes(), row.visibleToAll(), Set.copyOf(viewers.getOrDefault(row.id(), Set.of())), row.removed(),
-                withClaims ? claims.get(row.id()) : null)).toList();
+                withClaims ? claims.get(row.id()) : null, row.imagePath())).toList();
     }
 
     private static List<String> links(Array array) throws SQLException {

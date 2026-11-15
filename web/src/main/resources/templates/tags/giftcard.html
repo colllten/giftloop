@@ -1,6 +1,9 @@
 {! One gift on a wishlist. Params: w (WishlistDetail), gift (Gift), optional
    notice / error. Claim forms swap this <li> (#gift-<id>) in place. !}
 <li class="card gift{#if gift.removed} gift-removed{/if}" id="gift-{gift.id}">
+  <div class="gift-summary">
+  {#if gift.imageUrl}<img class="gift-photo" src="{gift.imageUrl}" alt="" width="96" height="96" loading="lazy">{/if}
+  <div class="gift-body">
   <div class="gift-head">
     <h3 class="gift-name">{gift.name}</h3>
     <span class="gift-chips">
@@ -26,6 +29,8 @@
     {/for}
   </ul>
   {/if}
+  </div>
+  </div>
   {#if gift.removed}
   <p class="notice gift-removed-note">{w.ownerName} took this off their list. If you already bought it, it's yours to keep or return. Release your claim when you're done.</p>
   {/if}

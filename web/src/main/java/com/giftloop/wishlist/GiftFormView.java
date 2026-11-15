@@ -12,9 +12,11 @@ import java.util.UUID;
  * @param form       field values
  * @param errors     field name → message
  * @param members    people the gift can be shared with
+ * @param currentImageUrl photo the gift already has (edit only), or null
+ * @param notice     auto-fill outcome to show by the link field, or null
  */
 public record GiftFormView(UUID wishlistId, UUID giftId, GiftForm form, Map<String, String> errors,
-                           List<ViewerOption> members) {
+                           List<ViewerOption> members, String currentImageUrl, String notice) {
 
     /**
      * Blank add form.
@@ -23,7 +25,7 @@ public record GiftFormView(UUID wishlistId, UUID giftId, GiftForm form, Map<Stri
      * @return view
      */
     public static GiftFormView add(WishlistDetail wishlist) {
-        return new GiftFormView(wishlist.id(), null, GiftForm.empty(), Map.of(), wishlist.members());
+        return new GiftFormView(wishlist.id(), null, GiftForm.empty(), Map.of(), wishlist.members(), null, null);
     }
 
     /**
@@ -34,7 +36,24 @@ public record GiftFormView(UUID wishlistId, UUID giftId, GiftForm form, Map<Stri
      * @return view
      */
     public static GiftFormView edit(WishlistDetail wishlist, Gift gift) {
-        return new GiftFormView(wishlist.id(), gift.id(), GiftForm.from(gift), Map.of(), wishlist.members());
+        return new GiftFormView(wishlist.id(), gift.id(), GiftForm.from(gift), Map.of(), wishlist.members(),
+                gift.imageUrl(), null);
+    }
+
+    /**
+     * Form re-shown after a failed save or an auto-fill.
+     *
+     * @param wishlist the wishlist
+     * @param gift     gift being edited, or null when adding
+     * @param form     submitted (or filled) values
+     * @param errors   field errors
+     * @param notice   auto-fill outcome, or null
+     * @return view
+     */
+    public static GiftFormView of(WishlistDetail wishlist, Gift gift, GiftForm form, Map<String, String> errors,
+                                  String notice) {
+        return new GiftFormView(wishlist.id(), gift == null ? null : gift.id(), form, errors, wishlist.members(),
+                gift == null ? null : gift.imageUrl(), notice);
     }
 
     /**
@@ -63,6 +82,36 @@ public record GiftFormView(UUID wishlistId, UUID giftId, GiftForm form, Map<Stri
     public String action() {
         String base = "/wishlists/" + wishlistId + "/gifts";
         return giftId == null ? base : base + "/" + giftId;
+    }
+
+    /**
+     * Where the link field posts for auto-fill.
+     *
+     * @return {@code <action>/autofill} for edits, {@code /wishlists/<id>/gifts/autofill} for adds
+     */
+    public String autofillAction() {
+        return giftId == null ? "/wishlists/" + wishlistId + "/gifts/autofill" : action() + "/autofill";
+    }
+
+    /**
+     * Inline preview of a staged photo.
+     *
+     * @return {@code data:} URL, or null when nothing is staged
+     */
+    public String stagedImageSrc() {
+        return form.imageData() == null ? null : "data:image/jpeg;base64," + form.imageData();
+    }
+
+    /**
+     * Photo to preview: the staged one, else the gift's current one unless removal is ticked.
+     *
+     * @return image URL, or null
+     */
+    public String previewImageSrc() {
+        if (stagedImageSrc() != null) {
+            return stagedImageSrc();
+        }
+        return form.removeImage() ? null : currentImageUrl;
     }
 
     /**

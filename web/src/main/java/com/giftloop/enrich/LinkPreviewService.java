@@ -3,6 +3,7 @@ package com.giftloop.enrich;
 import com.giftloop.image.Images;
 import com.giftloop.wishlist.GiftImageService;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import java.net.URI;
@@ -57,10 +58,17 @@ public class LinkPreviewService {
      *
      * @param fetcher SSRF-safe HTTP fetcher
      */
+    @Inject
     public LinkPreviewService(SafeFetcher fetcher) {
         this(fetcher, Clock.systemUTC());
     }
 
+    /**
+     * Creates the service with a given clock (tests).
+     *
+     * @param fetcher SSRF-safe HTTP fetcher
+     * @param clock   time source for the rate limit
+     */
     LinkPreviewService(SafeFetcher fetcher, Clock clock) {
         this.fetcher = fetcher;
         this.clock = clock;

@@ -22,9 +22,20 @@ import java.util.UUID;
  * @param viewerIds    allowlist when not shared with everyone; filled in for the owner only
  * @param removed      the owner removed it; only its claimers still see it
  * @param claims       claims the caller may see, or null when claims are hidden (owner before reveal)
+ * @param imagePath    photo at {@code <owner>/<gift>/<file>} in {@code gift-images}, or null
  */
 public record Gift(UUID id, String name, BigDecimal price, List<String> links, int quantity, String notes,
-                   boolean visibleToAll, Set<UUID> viewerIds, boolean removed, GiftClaims claims) {
+                   boolean visibleToAll, Set<UUID> viewerIds, boolean removed, GiftClaims claims,
+                   String imagePath) {
+
+    /**
+     * App URL of the photo (served by {@link GiftImageResource}).
+     *
+     * @return {@code /gift-images/<path>}, or null if the gift has no photo
+     */
+    public String imageUrl() {
+        return imagePath == null ? null : "/gift-images/" + imagePath;
+    }
 
     /**
      * Whether the caller may see claims on this gift.
