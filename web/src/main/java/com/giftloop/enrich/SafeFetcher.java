@@ -1,27 +1,33 @@
 package com.giftloop.enrich;
 
+import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.config.TlsConfig;
+import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
+import org.apache.hc.core5.http.nio.support.AsyncRequestBuilder;
+import org.apache.hc.core5.http2.HttpVersionPolicy;
+import org.apache.hc.core5.io.CloseMode;
+import org.apache.hc.core5.net.InetAddressUtils;
+import org.apache.hc.core5.reactor.IOReactorConfig;
+import org.apache.hc.core5.util.Timeout;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-import java.io.ByteArrayOutputStream;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Flow;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -32,7 +38,9 @@ import java.util.concurrent.TimeoutException;
  * <ul>
  *   <li>http/https on the default ports only; no user info in the URL.</li>
  *   <li>Every resolved address must be public: no loopback, private, link-local (cloud
- *       metadata), CGNAT, multicast, unique-local or reserved ranges.</li>
+ *       metadata), CGNAT, multicast, unique-local or reserved ranges. DNS is resolved once per
+ *       connection by {@link PublicOnlyDnsResolver} and the connection goes to exactly those
+ *       addresses, so DNS rebinding can't swap in a private one after the check.</li>
  *   <li>Redirects are followed by hand (at most {@value #MAX_REDIRECTS}) and each hop is
  *       re-checked.</li>
  *   <li>Short timeouts, a size cap per kind, and a content-type check. Pages over the cap are
@@ -40,16 +48,18 @@ import java.util.concurrent.TimeoutException;
  *       the cap are refused.</li>
  * </ul>
  *
- * <p>Residual risk: the HTTP client resolves the host again after the check, so a DNS
- * rebinding attacker could swap in a private address between the two lookups. See
- * {@code docs/SECURITY.md}.
+ * <p>Transport is the Apache HttpClient 5 async client: it takes a pluggable DNS resolver (the
+ * JDK client always does its own lookup) and speaks HTTP/2. HTTP/2 matters: Cloudflare-fronted
+ * stores (e.g. Allbirds) answer Java's TLS over HTTP/1.1 with 429. No {@code Accept-Encoding}
+ * is sent (left to itself the client advertises every codec on the classpath, another bot
+ * signal), and no proxy settings are read, so nothing routes around the resolver.
  */
 @ApplicationScoped
 public class SafeFetcher {
 
     /** Most redirects followed. */
     static final int MAX_REDIRECTS = 3;
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
+    private static final Timeout STEP_TIMEOUT = Timeout.ofSeconds(3);
     private static final Duration TOTAL_TIMEOUT = Duration.ofSeconds(6);
     private static final String USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
             + "(KHTML, like Gecko) Chrome/131.0 Safari/537.36 GiftLoopLinkPreview/1.0";
@@ -70,6 +80,15 @@ public class SafeFetcher {
         Kind(int maxBytes, boolean truncates) {
             this.maxBytes = maxBytes;
             this.truncates = truncates;
+        }
+
+        /**
+         * Whether bodies over the cap are cut rather than refused.
+         *
+         * @return true for pages
+         */
+        boolean truncates() {
+            return truncates;
         }
 
         /**
@@ -118,20 +137,56 @@ public class SafeFetcher {
      * serve fixtures from a local server. Every other check still applies.
      */
     private final boolean allowLoopback;
-    private final HttpClient client;
+    /** Test-only: allow non-default ports (local fixture servers use random ports). */
+    private final boolean anyPort;
+    private final CloseableHttpAsyncClient client;
 
     /**
      * Creates the fetcher.
      *
-     * @param allowLoopback {@code giftloop.link-preview.allow-loopback}; never set outside tests
+     * @param allowLoopback {@code giftloop.link-preview.allow-loopback}; never set outside tests.
+     *                      Also allows non-default ports, which local fixture servers need.
      */
+    @Inject
     public SafeFetcher(@ConfigProperty(name = "giftloop.link-preview.allow-loopback", defaultValue = "false")
                        boolean allowLoopback) {
+        this(allowLoopback, allowLoopback, HostLookup.SYSTEM);
+    }
+
+    /**
+     * Creates the fetcher with test knobs.
+     *
+     * @param allowLoopback let loopback addresses through
+     * @param anyPort       allow non-default ports
+     * @param lookup        DNS lookup
+     */
+    SafeFetcher(boolean allowLoopback, boolean anyPort, HostLookup lookup) {
         this.allowLoopback = allowLoopback;
-        this.client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .connectTimeout(CONNECT_TIMEOUT)
+        this.anyPort = anyPort;
+        this.client = HttpAsyncClients.custom()
+                .setConnectionManager(PoolingAsyncClientConnectionManagerBuilder.create()
+                        .setDnsResolver(new PublicOnlyDnsResolver(lookup, allowLoopback))
+                        .setDefaultConnectionConfig(ConnectionConfig.custom()
+                                .setConnectTimeout(STEP_TIMEOUT)
+                                .setSocketTimeout(STEP_TIMEOUT)
+                                .build())
+                        .setDefaultTlsConfig(TlsConfig.custom()
+                                .setVersionPolicy(HttpVersionPolicy.NEGOTIATE)
+                                .build())
+                        .build())
+                .setIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(2).build())
+                .setDefaultRequestConfig(RequestConfig.custom()
+                        .setRedirectsEnabled(false)
+                        .setResponseTimeout(STEP_TIMEOUT)
+                        .build())
+                .disableRedirectHandling()
+                .disableCookieManagement()
+                .disableAuthCaching()
+                .disableAutomaticRetries()
+                .disableContentCompression()
+                .setUserAgent(USER_AGENT)
                 .build();
+        this.client.start();
         if (allowLoopback) {
             LOG.warn("Link previews may fetch loopback addresses (test setting)");
         }
@@ -154,39 +209,33 @@ public class SafeFetcher {
             if (left.isNegative() || left.isZero()) {
                 throw new FetchException("timed out");
             }
-            HttpRequest request = HttpRequest.newBuilder(current)
-                    .timeout(left)
-                    .header("User-Agent", USER_AGENT)
-                    .header("Accept", kind == Kind.HTML ? "text/html,application/xhtml+xml" : "image/*")
-                    .header("Accept-Language", "en-US,en;q=0.8")
-                    .GET()
-                    .build();
-            HttpResponse<byte[]> response = send(request, kind, left);
-            int status = response.statusCode();
+            CappedResponseConsumer.Response response = exchange(current, kind, left);
+            int status = response.status();
             if (status >= 300 && status < 400) {
-                String location = response.headers().firstValue("Location")
-                        .orElseThrow(() -> new FetchException("redirect without Location"));
+                if (response.location() == null) {
+                    throw new FetchException("redirect without Location");
+                }
                 try {
-                    current = current.resolve(location.strip());
+                    current = current.resolve(response.location().strip());
                 } catch (IllegalArgumentException e) {
-                    throw new FetchException("bad redirect: " + location);
+                    throw new FetchException("bad redirect: " + response.location());
                 }
                 continue;
             }
             if (status != 200) {
                 throw new FetchException("status " + status);
             }
-            String type = response.headers().firstValue("Content-Type").orElse("");
             if (response.body() == null) {
-                throw new FetchException("unexpected content type " + type);
+                throw new FetchException("unexpected content type " + response.contentType());
             }
-            return new Fetched(current, type, response.body());
+            return new Fetched(current, response.contentType(), response.body());
         }
         throw new FetchException("too many redirects");
     }
 
     /**
-     * Refuses URLs that are not plain web addresses on public hosts.
+     * Refuses URLs that are not plain web addresses: other schemes, user info, non-default
+     * ports, and non-public IP literals. Host names are checked when they are resolved.
      *
      * @param uri candidate URL
      * @throws FetchException if refused
@@ -205,19 +254,23 @@ public class SafeFetcher {
         }
         int port = uri.getPort();
         boolean defaultPort = port == -1 || (scheme.equals("http") && port == 80) || (scheme.equals("https") && port == 443);
-        InetAddress[] addresses;
-        try {
-            addresses = InetAddress.getAllByName(host);
-        } catch (UnknownHostException e) {
-            throw new FetchException("unknown host " + host);
-        }
-        for (InetAddress address : addresses) {
-            boolean loopbackAllowed = allowLoopback && address.isLoopbackAddress();
-            if (!loopbackAllowed && !isPublic(address)) {
-                throw new FetchException("non-public address for " + host);
+        // Names are checked by PublicOnlyDnsResolver at connect time (one lookup, the one used).
+        // IP literals need no DNS, so refuse non-public ones here with a clear reason.
+        // URIs always bracket IPv6 literals, including mapped forms like [::ffff:10.0.0.1].
+        boolean ipv6 = host.startsWith("[") && host.endsWith("]");
+        if (ipv6 || InetAddressUtils.isIPv4(host)) {
+            InetAddress address;
+            try {
+                // A literal parses without a DNS query.
+                address = InetAddress.getByName(ipv6 ? host.substring(1, host.length() - 1) : host);
+            } catch (UnknownHostException e) {
+                throw new FetchException("bad address " + host);
+            }
+            if (!(allowLoopback && address.isLoopbackAddress()) && !isPublic(address)) {
+                throw new FetchException("non-public address " + host);
             }
         }
-        if (!defaultPort && !(allowLoopback && addresses.length > 0 && addresses[0].isLoopbackAddress())) {
+        if (!defaultPort && !anyPort) {
             throw new FetchException("port " + port);
         }
     }
@@ -286,90 +339,40 @@ public class SafeFetcher {
     }
 
     /**
-     * Sends with one deadline covering headers and body. Bodies are only read for a 200 of
-     * the expected type, and reading stops at the kind's cap.
+     * One request with one deadline covering connect, headers and body. The consumer decides
+     * as early as it can; the exchange is then cancelled so unread bytes are dropped.
      */
-    private HttpResponse<byte[]> send(HttpRequest request, Kind kind, Duration left) throws FetchException {
-        HttpResponse.BodyHandler<byte[]> handler = info -> {
-            String type = info.headers().firstValue("Content-Type").orElse("");
-            return info.statusCode() == 200 && kind.accepts(type)
-                    ? new CappedBody(kind.maxBytes(), kind.truncates)
-                    : HttpResponse.BodySubscribers.replacing(null);
-        };
-        CompletableFuture<HttpResponse<byte[]>> future = client.sendAsync(request, handler);
+    private CappedResponseConsumer.Response exchange(URI uri, Kind kind, Duration left) throws FetchException {
+        CappedResponseConsumer consumer = new CappedResponseConsumer(kind);
+        Future<CappedResponseConsumer.Response> exchange = client.execute(
+                AsyncRequestBuilder.get(uri)
+                        .setHeader("Accept", kind == Kind.HTML ? "text/html,application/xhtml+xml" : "image/*")
+                        .setHeader("Accept-Language", "en-US,en;q=0.8")
+                        .build(),
+                consumer, null);
         try {
-            return future.get(left.toMillis(), TimeUnit.MILLISECONDS);
+            return consumer.result().get(left.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            future.cancel(true);
             throw new FetchException("timed out");
         } catch (ExecutionException e) {
-            throw new FetchException("failed: " + e.getCause());
+            throw new FetchException("unreachable: " + e.getCause().getMessage());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new FetchException("interrupted");
+        } finally {
+            exchange.cancel(true);
         }
     }
 
     /**
-     * Collects a body up to {@code maxBytes}, then cancels the stream. With {@code truncate}
-     * the first {@code maxBytes} are returned; otherwise the body fails. The result completes
-     * before the cancel, so the stream reset that follows can't turn it into an error.
+     * Closes the HTTP client and its pooled connections.
      */
-    private static final class CappedBody implements HttpResponse.BodySubscriber<byte[]> {
-        private final int maxBytes;
-        private final boolean truncate;
-        private final ByteArrayOutputStream out = new ByteArrayOutputStream();
-        private final CompletableFuture<byte[]> result = new CompletableFuture<>();
-        private Flow.Subscription subscription;
-
-        CappedBody(int maxBytes, boolean truncate) {
-            this.maxBytes = maxBytes;
-            this.truncate = truncate;
-        }
-
-        @Override
-        public CompletionStage<byte[]> getBody() {
-            return result;
-        }
-
-        @Override
-        public void onSubscribe(Flow.Subscription s) {
-            subscription = s;
-            s.request(Long.MAX_VALUE);
-        }
-
-        @Override
-        public void onNext(List<ByteBuffer> items) {
-            if (result.isDone()) {
-                return;
-            }
-            for (ByteBuffer item : items) {
-                if (out.size() + item.remaining() > maxBytes) {
-                    if (truncate) {
-                        byte[] head = new byte[maxBytes - out.size()];
-                        item.get(head);
-                        out.writeBytes(head);
-                        result.complete(out.toByteArray());
-                    } else {
-                        result.completeExceptionally(new IllegalStateException("body over " + maxBytes + " bytes"));
-                    }
-                    subscription.cancel();
-                    return;
-                }
-                byte[] chunk = new byte[item.remaining()];
-                item.get(chunk);
-                out.writeBytes(chunk);
-            }
-        }
-
-        @Override
-        public void onError(Throwable throwable) {
-            result.completeExceptionally(throwable);
-        }
-
-        @Override
-        public void onComplete() {
-            result.complete(out.toByteArray());
+    @PreDestroy
+    void close() {
+        try {
+            client.close(CloseMode.GRACEFUL);
+        } catch (RuntimeException e) {
+            LOG.debugf("Closing link preview client: %s", e.getMessage());
         }
     }
 }

@@ -2,6 +2,8 @@
 
 ## Status
 Accepted (2026-11-15)
+Amended (2026-11-15): DNS rebinding closed in code (resolve once, connect to the
+checked addresses); the egress rule is now defense in depth.
 
 ## Context
 Owners want to paste a product link and have the gift filled in, ideally with a
@@ -28,8 +30,10 @@ fills empty fields and never saves; failures fall back to manual entry.
 ## Consequences
 - Some sites yield little or nothing; the UI says so and the owner types it in.
 - The app makes outbound requests on users' behalf: SSRF controls and a per-user
-  rate limit are required (docs/SECURITY.md). Production should also block
-  egress to private ranges.
+  rate limit are required (docs/SECURITY.md). Connections are pinned to the
+  checked DNS answers (Apache HttpClient + `PublicOnlyDnsResolver`), so DNS
+  rebinding can't reach private addresses. Blocking egress to private ranges in
+  production remains as defense in depth (checklist in docs/SECURITY.md).
 - Prices are only filled for USD (gifts store a bare amount).
 - Photos outlive their gift rows until swept; a trigger-fed queue
   (`GiftImageOrphan`) makes cleanup reliable without the owner learning whether

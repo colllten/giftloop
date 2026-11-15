@@ -60,11 +60,25 @@ Quarkus fetches user-supplied URLs, so `SafeFetcher` restricts them:
   covers headers and body; pages are truncated at 1.5 MB, images over 5 MB
   are refused, and bodies are only read for a 200 of the expected type.
 - 20 previews per user per minute (in memory, per instance).
-- Residual risk: DNS rebinding. The JDK client resolves the host again after
-  the check, so a hostile DNS server could answer a private address the second
-  time. Mitigate at the network layer in production (deny egress to private
-  ranges/metadata from the app).
-- `giftloop.link-preview.allow-loopback` exists for tests only (`%test`).
+- DNS rebinding is closed in code: `PublicOnlyDnsResolver` resolves each host
+  once, refuses it if any address is non-public, and Apache HttpClient connects
+  to exactly those addresses (no second lookup, no proxy settings read).
+  Non-public IP literals are refused before connecting.
+- The async client negotiates HTTP/2 and sends no `Accept-Encoding`: Cloudflare
+  sites answer Java TLS over HTTP/1.1, or a long codec list, with 429.
+- `giftloop.link-preview.allow-loopback` exists for tests only (`%test`); it
+  also allows non-default ports for local fixture servers.
+
+### Production egress (when hosting is chosen)
+Defense in depth for the app container, on whatever platform hosts it:
+- Allow: DNS to the platform resolver; Supabase (HTTPS 443, Postgres 5432/6543);
+  general HTTPS/HTTP 443/80 to the internet (link previews).
+- Deny: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 127.0.0.0/8,
+  169.254.0.0/16 (incl. metadata 169.254.169.254), fc00::/7, fe80::/10,
+  `fd00:ec2::254`. Add explicit allows above the denies only for private
+  services the app really uses (e.g. a VPC-internal database or resolver).
+- If the platform offers it, also block or require tokens for the instance
+  metadata service (e.g. AWS IMDSv2 with hop limit 1).
 
 ## Local Development
 Local Supabase keys printed by `supabase start` are shared defaults. Never use
