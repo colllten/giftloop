@@ -59,7 +59,9 @@ Quarkus fetches user-supplied URLs, so `SafeFetcher` restricts them:
 - Redirects followed by hand (max 3), each hop re-checked. One 6 s deadline
   covers headers and body; pages are truncated at 1.5 MB, images over 5 MB
   are refused, and bodies are only read for a 200 of the expected type.
-- 20 previews per user per minute (in memory, per instance).
+- 20 auto-fills per user per sliding hour, every attempt counted, stored in the
+  DB (`private.record_link_preview`, `PT429`), so it holds across restarts and
+  instances.
 - DNS rebinding is closed in code: `PublicOnlyDnsResolver` resolves each host
   once, refuses it if any address is non-public, and Apache HttpClient connects
   to exactly those addresses (no second lookup, no proxy settings read).
