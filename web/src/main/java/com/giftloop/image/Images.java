@@ -23,8 +23,18 @@ import java.util.Iterator;
  * <p>Accepts JPEG, PNG and WebP (WebP via the TwelveMonkeys ImageIO plugin).
  * Dimensions are checked from the header before decoding, so a small file can't
  * expand into a huge bitmap.
+ *
+ * <p>This is the app's only AWT entry point, so it switches AWT to headless before first use.
+ * Otherwise, on macOS, the first resize starts a GUI app (a Java icon in the Dock) that lives as
+ * long as the JVM. Linux servers without a display are headless already; this makes it explicit.
  */
 public final class Images {
+
+    static {
+        if (System.getProperty("java.awt.headless") == null) {
+            System.setProperty("java.awt.headless", "true");
+        }
+    }
 
     /** Largest accepted width or height of a source image. */
     public static final int MAX_SOURCE_EDGE = 6000;

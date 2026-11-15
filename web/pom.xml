@@ -130,6 +130,8 @@
                     <systemPropertyVariables>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <maven.home>${maven.home}</maven.home>
+                        <!-- Image processing uses AWT; headless keeps it from starting a macOS Dock app. -->
+                        <java.awt.headless>true</java.awt.headless>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -150,6 +152,8 @@
                         <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <maven.home>${maven.home}</maven.home>
+                        <!-- Image processing uses AWT; headless keeps it from starting a macOS Dock app. -->
+                        <java.awt.headless>true</java.awt.headless>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
