@@ -1,5 +1,7 @@
 package com.giftloop.event;
 
+import com.giftloop.exchange.ExchangeService;
+import com.giftloop.exchange.ExchangeView;
 import com.giftloop.group.GroupDetail;
 import com.giftloop.group.GroupService;
 import com.giftloop.security.RequiresOnboarding;
@@ -37,18 +39,21 @@ public class EventPageResource {
     private final JsonWebToken jwt;
     private final EventService events;
     private final GroupService groups;
+    private final ExchangeService exchanges;
 
     /**
      * Creates the resource.
      *
-     * @param jwt    caller's verified token
-     * @param events event access
-     * @param groups group access (for the new-event page heading)
+     * @param jwt       caller's verified token
+     * @param events    event access
+     * @param groups    group access (for the new-event page heading)
+     * @param exchanges Secret Santa access (for exchange events)
      */
-    public EventPageResource(JsonWebToken jwt, EventService events, GroupService groups) {
+    public EventPageResource(JsonWebToken jwt, EventService events, GroupService groups, ExchangeService exchanges) {
         this.jwt = jwt;
         this.events = events;
         this.groups = groups;
+        this.exchanges = exchanges;
     }
 
     /**
@@ -83,10 +88,11 @@ public class EventPageResource {
         /**
          * Event page.
          *
-         * @param event the event
+         * @param event    the event
+         * @param exchange its Secret Santa exchange, or null for a standard event
          * @return page
          */
-        static native TemplateInstance event(EventDetail event);
+        static native TemplateInstance event(EventDetail event, ExchangeView exchange);
     }
 
     /**
@@ -101,7 +107,7 @@ public class EventPageResource {
     @Operation(hidden = true)
     public TemplateInstance createPage(@PathParam("id") UUID groupId) {
         GroupDetail group = groups.find(jwt, groupId).orElseThrow(NotFoundException::new);
-        return Templates.create(new EventFormView(groupId, group.name(), null, null, null, Map.of()));
+        return Templates.create(EventFormView.blank(groupId, group.name()));
     }
 
     /**
@@ -110,6 +116,8 @@ public class EventPageResource {
      * @param groupId group id
      * @param name    event name
      * @param endDate optional last day ({@code yyyy-MM-dd})
+     * @param type    {@code standard} (default) or {@code exchange}
+     * @param budget  optional exchange spending limit
      * @param headers request headers
      * @return redirect to the event, or the form with errors
      */
@@ -117,11 +125,12 @@ public class EventPageResource {
     @Path("groups/{id}/events")
     @Operation(hidden = true)
     public Response create(@PathParam("id") UUID groupId, @RestForm String name, @RestForm String endDate,
-                           HttpHeaders headers) {
-        EventForm form = EventForm.of(name, endDate);
+                           @RestForm String type, @RestForm String budget, HttpHeaders headers) {
+        EventForm form = EventForm.of(name, endDate, type, budget);
         Map<String, String> errors = form.validate();
         if (!errors.isEmpty()) {
-            return Response.ok(Templates.eventForm(new EventFormView(groupId, null, null, name, endDate, errors))).build();
+            return Response.ok(Templates.eventForm(new EventFormView(groupId, null, null, name, endDate,
+                    form.type(), budget, false, errors))).build();
         }
         UUID id = events.create(jwt, groupId, form);
         return Redirects.to(headers, "/events/" + id).build();
@@ -138,7 +147,9 @@ public class EventPageResource {
     @Path("events/{id}")
     @Operation(hidden = true)
     public TemplateInstance eventPage(@PathParam("id") UUID id) {
-        return Templates.event(events.find(jwt, id).orElseThrow(NotFoundException::new));
+        EventDetail event = events.find(jwt, id).orElseThrow(NotFoundException::new);
+        ExchangeView exchange = event.type().isExchange() ? exchanges.find(jwt, id).orElse(null) : null;
+        return Templates.event(event, exchange);
     }
 
     /**
@@ -158,16 +169,19 @@ public class EventPageResource {
             throw new ForbiddenException();
         }
         String endDate = event.endDate() == null ? null : event.endDate().toString();
+        String budget = event.budget() == null ? null : event.budget().toPlainString();
         return Templates.edit(new EventFormView(event.groupId(), event.groupName(), id, event.name(), endDate,
-                Map.of()));
+                event.type(), budget, event.drawn(), Map.of()));
     }
 
     /**
-     * Saves an event's name and end date (group owner/admin), then opens it.
+     * Saves an event's name, end date, type and budget (group owner/admin), then opens it.
      *
      * @param id      event id
      * @param name    event name
      * @param endDate optional last day ({@code yyyy-MM-dd})
+     * @param type    {@code standard} or {@code exchange}
+     * @param budget  optional exchange spending limit
      * @param headers request headers
      * @return redirect to the event, or the form with errors
      * @throws ForbiddenException if the event is missing or the caller may not edit it
@@ -176,14 +190,20 @@ public class EventPageResource {
     @Path("events/{id}")
     @Operation(hidden = true)
     public Response update(@PathParam("id") UUID id, @RestForm String name, @RestForm String endDate,
-                           HttpHeaders headers) {
-        EventForm form = EventForm.of(name, endDate);
+                           @RestForm String type, @RestForm String budget, HttpHeaders headers) {
+        EventForm form = EventForm.of(name, endDate, type, budget);
         Map<String, String> errors = form.validate();
-        if (!errors.isEmpty()) {
-            return Response.ok(Templates.eventForm(new EventFormView(null, null, id, name, endDate, errors))).build();
+        if (errors.isEmpty()) {
+            try {
+                events.update(jwt, id, form);
+                return Redirects.to(headers, "/events/" + id).build();
+            } catch (EventTypeLockedException e) {
+                errors = Map.of("type", "Names are drawn, so the type can't change. Undo the draw first.");
+            }
         }
-        events.update(jwt, id, form);
-        return Redirects.to(headers, "/events/" + id).build();
+        // The type radios are re-enabled here; the database still refuses a change after the draw.
+        return Response.ok(Templates.eventForm(new EventFormView(null, null, id, name, endDate, form.type(), budget,
+                false, errors))).build();
     }
 
     /**

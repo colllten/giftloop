@@ -6,6 +6,34 @@
            {#if view.error('name')}aria-invalid="true" aria-describedby="event-name-error"{/if}>
     {#if view.error('name')}<p id="event-name-error" class="error" role="alert">{view.error('name')}</p>{/if}
   </div>
+  <fieldset class="field event-type"{#if view.error('type')} aria-describedby="event-type-error"{/if}>
+    <legend>Event type</legend>
+    {#if view.typeLocked}
+    {! Disabled radios aren't submitted; the hidden input keeps the current type. !}
+    <p class="hint">Names are drawn, so the type can't change. Undo the draw on the event page to change it.</p>
+    <input type="hidden" name="type" value="{view.type.dbValue}">
+    {/if}
+    <div class="type-cards">
+      {#for t in view.types}
+      <label class="type-card">
+        <input type="radio" name="type" value="{t.dbValue}" aria-describedby="event-type-{t.dbValue}-desc"
+               {#if t == view.type}checked{/if} {#if view.typeLocked}disabled{/if}>
+        <span>
+          <span class="type-card-title">{t.label}</span>
+          <span id="event-type-{t.dbValue}-desc" class="hint">{t.description}</span>
+        </span>
+      </label>
+      {/for}
+    </div>
+    {#if view.error('type')}<p id="event-type-error" class="error" role="alert">{view.error('type')}</p>{/if}
+  </fieldset>
+  <div class="field exchange-budget">
+    <label for="event-budget">Budget <span class="hint">Optional. A spending limit for each gift, shown to everyone in the exchange.</span></label>
+    <input id="event-budget" name="budget" type="text" inputmode="decimal" maxlength="15" placeholder="$25"
+           value="{view.budget ?: ''}"
+           {#if view.error('budget')}aria-invalid="true" aria-describedby="event-budget-error"{/if}>
+    {#if view.error('budget')}<p id="event-budget-error" class="error" role="alert">{view.error('budget')}</p>{/if}
+  </div>
   <div class="field">
     <label for="event-end">Last day <span class="hint">Optional. Wishlist owners can see who claimed what the day after.</span></label>
     <input id="event-end" name="endDate" type="date" value="{view.endDate ?: ''}"

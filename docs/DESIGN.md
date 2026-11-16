@@ -107,6 +107,8 @@ media queries because they can't read custom properties.
 | `.chip.chip-visibility` | Who can see a gift, as text ("Everyone", "Shared with 2 people"). Owner only |
 | `.chip.chip-off-list` | "Not on the list" / "Not on your list" on gifts a giver added |
 | `.visibility` / `.viewer-picker` | Gift visibility fieldset; member checkboxes show only when "Only people I pick" is chosen |
+| `.type-cards` / `.type-card` / `.type-card-title` | Event type radio cards with a `.hint` description; selected card gets a thicker primary border. `.exchange-budget` shows only when "exchange" is checked |
+| `.exchange-panel` / `.exchange-recipient` | Secret Santa section on the event page; the giver's recipient in a `.banner` |
 | `.wishlist-layout` | Wishlist page grid: `.wishlist-gifts`, `.wishlist-add`, `.wishlist-settings` |
 
 Use at most one `.primary` button per view.

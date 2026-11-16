@@ -11,8 +11,9 @@ import java.util.UUID;
  * @param id      event id
  * @param name    event name
  * @param endDate last day of the event, or null if open-ended
+ * @param type    event type
  */
-public record EventSummary(UUID id, String name, LocalDate endDate) {
+public record EventSummary(UUID id, String name, LocalDate endDate, EventType type) {
 
     private static final DateTimeFormatter DISPLAY = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US);
 

@@ -6,9 +6,14 @@
 <div class="page-head">
 <p class="hint"><a href="/groups/{event.groupId}">{event.groupName}</a></p>
 <h1>{event.name}</h1>
+{#if event.type.exchange}<p class="event-meta"><span class="chip chip-role">Secret Santa</span>{#if event.budgetLabel} <span class="hint">Budget {event.budgetLabel}</span>{/if}</p>{/if}
 {#if event.endDateLabel}<p class="hint">Ends {event.endDateLabel}</p>{/if}
 {#if event.canManage}<p><a class="button" href="/events/{event.id}/edit">Edit event</a></p>{/if}
 </div>
+
+{#if exchange}
+{#include ExchangePageResource/exchangePanel /}
+{/if}
 
 <h2>Wishlists</h2>
 {#if event.wishlists.isEmpty}

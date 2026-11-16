@@ -17,6 +17,7 @@
   <li>
     <a class="card link-card" href="/events/{e.id}">
       <span class="link-card-title">{e.name}</span>
+      {#if e.type.exchange}<span class="chip chip-role">Secret Santa</span>{/if}
       {#if e.endDateLabel}<span class="hint">Ends {e.endDateLabel}</span>{/if}
     </a>
   </li>

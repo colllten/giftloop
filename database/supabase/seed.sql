@@ -35,7 +35,7 @@ where email in ('alice@example.com', 'bob@example.com', 'carol@example.com', 'da
 -- Seed users skip onboarding and have accepted the current legal documents
 -- (keep terms_version equal to giftloop.legal.version in application.properties).
 update public."Profile"
-set onboarded_at = now(), terms_version = '2026-11-16', terms_accepted_at = now()
+set onboarded_at = now(), terms_version = '2026-11-17', terms_accepted_at = now()
 where id in ('00000000-0000-0000-0000-00000000a11c', '00000000-0000-0000-0000-000000000b0b',
              '00000000-0000-0000-0000-00000000ca01', '00000000-0000-0000-0000-00000000da7e');
 
@@ -82,3 +82,13 @@ values ('50000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-0000000
 
 insert into public."ClaimParticipant" (claim_id, user_id, is_anonymous)
 values ('50000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000ca01', true);
+
+-- Secret Santa: alice, bob and carol joined; names not drawn yet (draw from the UI).
+insert into public."Event" (id, group_id, name, end_date, created_by, type, budget)
+values ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001',
+        'Family Secret Santa 2026', '2026-12-25', '00000000-0000-0000-0000-00000000a11c', 'exchange', 50.00);
+
+insert into public."ExchangeParticipant" (event_id, user_id) values
+  ('20000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000a11c'),
+  ('20000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000b0b'),
+  ('20000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000ca01');
