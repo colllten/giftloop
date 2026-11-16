@@ -25,6 +25,10 @@ flowchart LR
   is never pushed. Migrations deploy independently of the app, so keep them
   backward compatible with the running version.
 
+## Runtime environment
+The app requires `GIFTLOOP_CONTACT_EMAIL` (shown in the legal pages) in
+production, alongside the `SUPABASE_*` variables.
+
 ## Repository setup (one-time)
 - **Environment `production`**: required reviewer = repo owner. Secrets:
   `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`.

@@ -299,9 +299,10 @@ sequenceDiagram
     B->>Q: POST /signup
     Q->>A: /otp (create_user=true)
     A->>M: 6-digit code
-    B->>Q: POST /signup/verify (code + password)
+    B->>Q: POST /signup/verify (code + password + acceptTerms)
     Q->>A: /verify (type=email)
     Q->>A: PUT /user (password)
+    Note over Q: records Terms acceptance (docs/LEGAL.md)
   else Email code (existing accounts only)
     B->>Q: POST /signin/code
     Q->>A: /otp (create_user=false)
@@ -324,6 +325,12 @@ sequenceDiagram
   Note over B,Q: Later requests: SessionRefreshHandler renews gl_at<br/>within 5 min of expiry using gl_rt
 ```
 
+## Legal
+`/terms`, `/privacy`, `/cookies` (`LegalResource`). `OnboardingGate` sends users
+who haven't accepted the current `giftloop.legal.version` to `/legal/accept`
+before onboarding. See `docs/LEGAL.md`; update those pages with any change
+listed there.
+
 # Third-party Integrations
 Link auto-fill fetches retailer pages and images directly from Quarkus
 (no third-party preview API; see ADR 004).
@@ -332,5 +339,7 @@ The app will need to utilize other authentication methods, or integrate with
 Supabase's integrations with Apple, Google, etc.
 
 Resend or other email providers will need to be utilized.
+
+Adding any provider must also update the Privacy Policy (`docs/LEGAL.md`).
 
 To be determined.

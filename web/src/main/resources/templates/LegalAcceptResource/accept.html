@@ -1,0 +1,15 @@
+{#include base}
+{#title}Our terms · GiftLoop{/title}
+{#main}
+<h1>Before you continue</h1>
+<p>Please review and agree to GiftLoop's <a href="/terms" target="_blank" rel="noopener">Terms of Service</a>
+  and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>
+  (last updated {legal.updated}). Our <a href="/cookies" target="_blank" rel="noopener">cookie notice</a>
+  explains the few cookies we use to keep you signed in.</p>
+{#include LegalAcceptResource/acceptForm error=null /}
+<form method="post" action="/signout" style="margin-top:1rem">
+  {#csrf /}
+  <button class="link-button" type="submit">Not now, sign me out</button>
+</form>
+{/main}
+{/include}

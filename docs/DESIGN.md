@@ -54,7 +54,8 @@ Source: `web/src/main/resources/META-INF/resources/assets/app.css`, served at
 Mobile first. One breakpoint at 56rem (896px), written literally in
 media queries because they can't read custom properties.
 
-- Every page gets the site header (`{#appheader /}`). Signed-in pages
+- Every page gets the site header (`{#appheader /}`) and footer
+  (`{#sitefooter /}`, legal links). Signed-in pages
   override it: `{#header}{#appheader nav=true current='groups' /}{/header}`
   (`current`: `groups`, `profile` or `''`).
 - `<main class="page">` width comes from `{#width}` in `base.html`:
@@ -95,6 +96,9 @@ media queries because they can't read custom properties.
 | `.visually-hidden` | Text for screen readers only, e.g. the member name in "Manage" |
 | `.brand` | Wordmark text |
 | `.site-header` / `.site-nav` | Site header and signed-in nav. Current link is underlined |
+| `.site-footer` | Legal links on every page (`{#sitefooter /}` in `base.html`) |
+| `.legal` / `.toc` | Long-form legal page and its table of contents |
+| `.table-scroll` | Table that scrolls sideways inside the page on phones |
 | `.page-head` | Title block above a wide page's content |
 | `.group-layout` | Group page grid: `.group-events`, `.group-members`, `.group-invite`, `.group-settings` |
 | `.gift-list` / `.gift` | Gift cards: `.gift-summary` (photo + `.gift-body`), `.gift-head`, `.gift-meta`, `.gift-notes`, `.gift-links`, `.gift-actions` |

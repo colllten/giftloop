@@ -54,6 +54,11 @@ erDiagram
 - With `search_path = ''`, compare citext with `operator(extensions.=)`; a bare
   `=` silently falls back to case-sensitive text equality.
 
+## Legal Acceptance
+- `Profile.terms_version` (accepted `giftloop.legal.version`) and
+  `terms_accepted_at`. Not user-updatable; `private.accept_terms(text)` stamps
+  the caller's row with `now()`. See `docs/LEGAL.md`.
+
 ## Gift Images
 - `gift-images` bucket: private, 1 MB, JPEG (the app re-encodes everything).
 - Read: anyone who can read the gift row (policy subquery runs under the

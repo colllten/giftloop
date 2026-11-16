@@ -32,8 +32,10 @@ select gen_random_uuid(), id, id::text,
 from auth.users
 where email in ('alice@example.com', 'bob@example.com', 'carol@example.com', 'dave@example.com');
 
--- Seed users skip onboarding.
-update public."Profile" set onboarded_at = now()
+-- Seed users skip onboarding and have accepted the current legal documents
+-- (keep terms_version equal to giftloop.legal.version in application.properties).
+update public."Profile"
+set onboarded_at = now(), terms_version = '2026-11-16', terms_accepted_at = now()
 where id in ('00000000-0000-0000-0000-00000000a11c', '00000000-0000-0000-0000-000000000b0b',
              '00000000-0000-0000-0000-00000000ca01', '00000000-0000-0000-0000-00000000da7e');
 

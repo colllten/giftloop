@@ -16,6 +16,9 @@
            {#if passwordError}aria-invalid="true" aria-describedby="password-error"{/if}>
     {#if passwordError}<p id="password-error" class="error" role="alert">{passwordError}</p>{/if}
   </div>
+  <div class="field">
+    {#legalconsent checked=acceptTerms error=termsError /}
+  </div>
   <button class="primary" type="submit">Create account</button>
 </form>
 <form hx-post="/signup" hx-target="#auth-step" style="margin-top:1rem">
