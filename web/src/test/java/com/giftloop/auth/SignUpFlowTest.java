@@ -13,6 +13,7 @@ import java.util.UUID;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -51,19 +52,41 @@ class SignUpFlowTest {
         browser.requestSignUpCode(email).then().body(containsString("We sent a 6-digit code"))
                 .body(containsString("autocomplete=\"new-password\""));
         String code = Mailpit.latestCode(email);
-        browser.htmxPost("/signup/verify", Map.of("email", email, "code", "12", "password", "long-enough-pw", "next", "/"))
+        browser.htmxPost("/signup/verify", Map.of("email", email, "code", "12", "password", "long-enough-pw", "acceptTerms", "true", "next", "/"))
                 .then().body(containsString("Please enter the 6-digit code"));
-        browser.htmxPost("/signup/verify", Map.of("email", email, "code", code, "password", "short", "next", "/"))
+        browser.htmxPost("/signup/verify", Map.of("email", email, "code", code, "password", "short", "acceptTerms", "true", "next", "/"))
                 .then().body(containsString("at least 8 characters"));
         String wrong = code.equals("000000") ? "111111" : "000000";
-        browser.htmxPost("/signup/verify", Map.of("email", email, "code", wrong, "password", "long-enough-pw", "next", "/"))
+        browser.htmxPost("/signup/verify", Map.of("email", email, "code", wrong, "password", "long-enough-pw", "acceptTerms", "true", "next", "/"))
                 .then().body(containsString("wrong or has expired"));
-        browser.htmxPost("/signup/verify", Map.of("email", email, "code", code, "password", "long-enough-pw", "next", "/"))
+        browser.htmxPost("/signup/verify", Map.of("email", email, "code", code, "password", "long-enough-pw", "acceptTerms", "true", "next", "/"))
                 .then().statusCode(200).header("HX-Redirect", "/");
 
         browser.get("/").then().statusCode(303).header("Location", containsString("/onboarding"));
         browser.get("/onboarding").then().statusCode(200).body(containsString("Welcome to GiftLoop!"));
         new BrowserSession().signInWithPassword(email, "long-enough-pw").then().header("HX-Redirect", "/");
+    }
+
+    /**
+     * The Terms checkbox is required and checked before the code, so the same code still
+     * works once ticked; acceptance is recorded (onboarding comes next, not /legal/accept).
+     */
+    @Test
+    void signUpRequiresTermsAndRecordsAcceptance() {
+        BrowserSession browser = new BrowserSession();
+        String email = newEmail();
+        browser.requestSignUpCode(email).then()
+                .body(containsString("name=\"acceptTerms\""))
+                .body(containsString("href=\"/terms\""))
+                .body(containsString("href=\"/privacy\""));
+        String code = Mailpit.latestCode(email);
+        browser.htmxPost("/signup/verify", Map.of("email", email, "code", code, "password", "long-enough-pw", "next", "/"))
+                .then().statusCode(200).header("HX-Redirect", nullValue())
+                .body(containsString("Please tick the box to agree"));
+        browser.htmxPost("/signup/verify", Map.of("email", email, "code", code, "password", "long-enough-pw",
+                        "acceptTerms", "true", "next", "/"))
+                .then().statusCode(200).header("HX-Redirect", "/");
+        browser.get("/").then().statusCode(303).header("Location", containsString("/onboarding"));
     }
 
     /** An existing email gets the exact same response as a new one, never an "already registered" hint. */
@@ -103,7 +126,7 @@ class SignUpFlowTest {
         BrowserSession victim = new BrowserSession();
         victim.requestSignUpCode(email);
         String code = Mailpit.latestCode(email);
-        victim.htmxPost("/signup/verify", Map.of("email", email, "code", code, "password", "victim-password", "next", "/"))
+        victim.htmxPost("/signup/verify", Map.of("email", email, "code", code, "password", "victim-password", "acceptTerms", "true", "next", "/"))
                 .then().header("HX-Redirect", "/");
 
         new BrowserSession().signInWithPassword(email, "attacker-password").then().body(containsString("don"));
