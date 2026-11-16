@@ -33,7 +33,7 @@ class LegalAcceptFlowTest {
     @Test
     void unacceptedUserMustAcceptBeforeContinuing() throws SQLException {
         TestUser user = TestUser.create("Legal Lee");
-        assertEquals("2026-11-16", termsVersion(user.id()));
+        assertEquals("2026-11-17", termsVersion(user.id()));
         clearAcceptance(user.id());
 
         user.browser().get("/profile").then().statusCode(303)
@@ -49,7 +49,7 @@ class LegalAcceptFlowTest {
 
         user.browser().htmxPost("/legal/accept", Map.of("acceptTerms", "true", "next", "/profile"))
                 .then().statusCode(200).header("HX-Redirect", "/profile");
-        assertEquals("2026-11-16", termsVersion(user.id()));
+        assertEquals("2026-11-17", termsVersion(user.id()));
         user.browser().get("/profile").then().statusCode(200);
         user.browser().get("/legal/accept?next=/profile").then().statusCode(303)
                 .header("Location", containsString("/profile"));

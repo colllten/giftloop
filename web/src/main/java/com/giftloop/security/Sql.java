@@ -53,6 +53,18 @@ public final class Sql {
     }
 
     /**
+     * DETAIL of the Postgres error behind a {@link DataAccessException}; {@code private.*}
+     * functions use it as a machine-readable reason (e.g. {@code too_few}).
+     *
+     * @param e wrapped failure
+     * @return detail, or null if there is none
+     */
+    public static String detail(DataAccessException e) {
+        return e.getCause() instanceof PSQLException pg && pg.getServerErrorMessage() != null
+                ? pg.getServerErrorMessage().getDetail() : null;
+    }
+
+    /**
      * Time until retry, from a {@link #RATE_LIMITED} error's DETAIL (seconds).
      *
      * @param e        wrapped {@code PT429} failure

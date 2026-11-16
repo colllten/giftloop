@@ -1,0 +1,124 @@
+{! Secret Santa panel on an exchange event's page. Every action swaps this section. !}
+<section id="exchange-panel" class="exchange-panel" aria-labelledby="exchange-heading">
+<h2 id="exchange-heading">Secret Santa</h2>
+{#if exchange.error}<p class="error" role="alert">{exchange.error}</p>{/if}
+
+{#if exchange.drawn}
+  {#if exchange.recipient}
+  <div class="banner exchange-recipient" role="status">
+    <p>You're giving a gift to <strong>{exchange.recipient.name}</strong>. Keep it secret!</p>
+    {#if exchange.recipient.wishlistId}
+    <p><a href="/wishlists/{exchange.recipient.wishlistId}">See {exchange.recipient.name}'s wishlist</a></p>
+    {#else}
+    <p>{exchange.recipient.name} hasn't started a wishlist yet.</p>
+    {/if}
+  </div>
+  {#else if exchange.recipientMissing}
+  <p class="notice">The person you drew left the exchange. Ask an admin to undo the draw and draw again.</p>
+  {#else}
+  <p class="notice">Names are drawn. You didn't join this exchange.</p>
+  {/if}
+{#else}
+  <p>Join to be part of the draw. Once an admin draws names, you'll see who you're buying for here. Nobody else can see it.</p>
+{/if}
+
+<h3>{exchange.participants.size} {#if exchange.participants.size == 1}person{#else}people{/if} joined</h3>
+{#if exchange.participants.isEmpty}
+<p class="hint">No one has joined yet.</p>
+{#else}
+<ul class="member-list">
+  {#for p in exchange.participants}
+  <li class="member">
+    <span class="member-info"><span class="member-name">{p.name}{#if p.me} (you){/if}</span></span>
+    {#if exchange.canManage && !exchange.drawn && !p.me}
+    <form hx-post="/events/{exchange.eventId}/exchange/participants/{p.userId}/remove"
+          hx-target="#exchange-panel" hx-swap="outerHTML"
+          hx-confirm="Remove {p.name} from the exchange?">
+      {#csrf /}
+      <button type="submit" class="danger">Remove<span class="visually-hidden"> {p.name}</span></button>
+    </form>
+    {/if}
+  </li>
+  {/for}
+</ul>
+{/if}
+
+{#if !exchange.drawn}
+<form hx-post="/events/{exchange.eventId}/exchange/{#if exchange.joined}leave{#else}join{/if}"
+      hx-target="#exchange-panel" hx-swap="outerHTML">
+  {#csrf /}
+  {#if exchange.joined}
+  <button type="submit">Leave the exchange</button>
+  {#else}
+  <button type="submit">Join the exchange</button>
+  {/if}
+</form>
+{/if}
+
+{#if exchange.canManage}
+<div class="exchange-admin">
+  {#if exchange.drawn}
+  <h3>Draw</h3>
+  <p class="hint">Undo the draw to let people join, leave or change exclusions. Everyone gets a new person when you draw again.</p>
+  <form hx-post="/events/{exchange.eventId}/exchange/reset" hx-target="#exchange-panel" hx-swap="outerHTML"
+        hx-confirm="Undo the draw? Everyone's assignment is deleted.">
+    {#csrf /}
+    <button type="submit" class="danger">Undo draw</button>
+  </form>
+  {#else}
+  <h3>Exclusions</h3>
+  <p class="hint">People who shouldn't draw each other, like partners. Only admins see this list.</p>
+  {#if !exchange.exclusions.isEmpty}
+  <ul class="member-list">
+    {#for x in exchange.exclusions}
+    <li class="member">
+      <span class="member-info"><span class="member-name">{x.nameA} and {x.nameB}</span></span>
+      <form hx-post="/events/{exchange.eventId}/exchange/exclusions/remove" hx-target="#exchange-panel" hx-swap="outerHTML">
+        {#csrf /}
+        <input type="hidden" name="userA" value="{x.userA}">
+        <input type="hidden" name="userB" value="{x.userB}">
+        <button type="submit" class="danger">Remove<span class="visually-hidden"> exclusion for {x.nameA} and {x.nameB}</span></button>
+      </form>
+    </li>
+    {/for}
+  </ul>
+  {/if}
+  {#if exchange.participants.size >= 2}
+  <form class="exchange-exclusion-form" hx-post="/events/{exchange.eventId}/exchange/exclusions"
+        hx-target="#exchange-panel" hx-swap="outerHTML">
+    {#csrf /}
+    <div class="row">
+      <div class="field">
+        <label for="exclusion-a">Person</label>
+        <select id="exclusion-a" name="userA" required>
+          <option value="">Choose…</option>
+          {#for p in exchange.participants}<option value="{p.userId}">{p.name}</option>{/for}
+        </select>
+      </div>
+      <div class="field">
+        <label for="exclusion-b">Can't draw</label>
+        <select id="exclusion-b" name="userB" required>
+          <option value="">Choose…</option>
+          {#for p in exchange.participants}<option value="{p.userId}">{p.name}</option>{/for}
+        </select>
+      </div>
+    </div>
+    <button type="submit">Add exclusion</button>
+  </form>
+  {/if}
+
+  <h3>Draw names</h3>
+  {#if exchange.canDraw}
+  <p class="hint">Everyone who joined gets one person to buy for. You'll only see your own.</p>
+  <form hx-post="/events/{exchange.eventId}/exchange/draw" hx-target="#exchange-panel" hx-swap="outerHTML"
+        hx-confirm="Draw names now? People can't join or leave until you undo the draw.">
+    {#csrf /}
+    <button type="submit">Draw names</button>
+  </form>
+  {#else}
+  <p class="hint">{exchange.stillNeeded} more {#if exchange.stillNeeded == 1}person needs{#else}people need{/if} to join before you can draw names.</p>
+  {/if}
+  {/if}
+</div>
+{/if}
+</section>

@@ -26,6 +26,10 @@ erDiagram
   Gift ||--o{ Claim : ""
   Claim ||--o{ ClaimParticipant : "co-purchasers"
   Profile ||--o{ ClaimParticipant : ""
+  Event ||--o{ ExchangeParticipant : "exchange only"
+  Profile ||--o{ ExchangeParticipant : ""
+  ExchangeParticipant ||--o{ ExchangeExclusion : "blocked pairs"
+  ExchangeParticipant ||--o{ ExchangeAssignment : "giver / receiver"
 ```
 
 | Table | Notes |
@@ -35,7 +39,10 @@ erDiagram
 | `GroupUser` | Membership + `role` (`owner`, `admin`, `member`). Creator is auto-added as owner; at most one owner per group (partial unique index). No direct inserts: rows come from the creator trigger and `join_group_by_code`. |
 | `GroupJoinCode` | One code per group, `^[A-HJ-NP-Z2-9]{8}$` (no I/O/0/1). Readable by owner/admins only. Created by trigger with the group. |
 | `JoinCodeFailure` | One row per unknown join code entered (`user_id`, `failed_at`); guesses aren't stored. RLS on, no policies, no grants: only `join_group_by_code` uses it. Rows older than the window are pruned on the user's next attempt. |
-| `Event` | `end_date` drives claim reveal. Null = never auto-reveal. |
+| `Event` | `end_date` drives claim reveal. Null = never auto-reveal. `type` (`standard`, `exchange`). `budget` and `drawn_at` only on exchanges (check). |
+| `ExchangeParticipant` | (`event_id`, `user_id`). Members opt in to an exchange. Must be a group member (`23514`). |
+| `ExchangeExclusion` | (`event_id`, `user_a`, `user_b`), `user_a < user_b`; blocks the pair both ways. Both must be participants (FK). Admin-only. |
+| `ExchangeAssignment` | (`event_id`, `giver_id`) → `receiver_id`, each receiver once. Written only by `draw_exchange`; readable only by the giver. |
 | `Wishlist` | One live wishlist per (`event_id`, `owner_id`) (partial unique index). Owner must be a group member. `removed_at` set = removed shell kept for claimed gifts. `owner_id` is null only on removed shells whose owner deleted their account. |
 | `Gift` | `quantity` ≥ 1. `price`, `links`, `notes` optional. `is_visible_to_all` (default true); when false, only `GiftViewer` rows can see it. `removed_at` set = owner removed it after it was claimed. `is_off_list` = a giver added it (see Off-list Gifts). `image_path` = `<owner id>/<gift id>/<file>` in `gift-images` (check: second segment is the gift's own id). |
 | `GiftImageOrphan` | Gift photo files no gift points at (replaced, cleared or deleted). Filled by trigger; RLS on, no policies, no grants. Drained per owner by `take_gift_image_orphans()`. |
@@ -88,8 +95,9 @@ roles (`admin` ↔ `member`). Delete on `GroupUser` allows leaving (not the
 owner), owner removing anyone else, admins removing plain members.
 `private.is_group_admin` counts the owner as an admin.
 
-`Event`: any member creates; only the owner/admin updates (`name`, `end_date`)
-or deletes, not the creator. Deleting cascades wishlists, gifts and claims.
+`Event`: any member creates; only the owner/admin updates (`name`, `end_date`,
+`type`, `budget`) or deletes, not the creator. Deleting cascades wishlists,
+gifts, claims and exchange rows.
 
 ## Gift Visibility
 A member sees a gift if any of these hold (`private.gift_visible_to`):
@@ -167,8 +175,30 @@ deletion, including Studio and the Admin API:
    `remove_wishlist`). Shells lose their owner (`on delete set null`), so
    owner checks use `is distinct from auth.uid()`; the app shows "Former member".
 
+## Gift Exchange
+Secret Santa events (`Event.type = 'exchange'`). See ADR 005.
+- Join/leave: members insert/delete their own `ExchangeParticipant` row while
+  `drawn_at` is null. Owner/admin can remove anyone before the draw. Leaving the
+  group removes the row (trigger).
+- Exclusions: owner/admin read/write, before the draw only.
+- `private.draw_exchange(event_id)`: owner/admin (`42501`). Randomized
+  backtracking: no self-pairs, no excluded pairs, everyone gives and receives
+  once. Sets `drawn_at`. `23514` DETAIL: `not_exchange`, `already_drawn`,
+  `too_few` (< 3), `no_valid_draw`.
+- `private.reset_exchange_draw(event_id)`: owner/admin. Deletes assignments,
+  clears `drawn_at`.
+- `ExchangeAssignment` select policy is `giver_id = auth.uid()`: admins and
+  receivers can't see pairs.
+- `guard_event_exchange_fields` (before insert/update on `Event`): nulls
+  `budget` off exchanges, ignores `drawn_at` on insert, refuses a `type` change
+  after the draw (`23514`, DETAIL `type_locked`), and drops participants and
+  exclusions when switching away from `exchange`.
+
 ## Known Gaps
 - An admin who is also a wishlist owner can flip the reveal flag.
 - Deleting an event or group still cascades its claims (everyone sees it go).
+- A participant who leaves the group or deletes their account after the draw
+  takes their assignments with them: their giver has no recipient until an
+  admin undoes the draw and draws again.
 - Gift photos of a deleted account's removed shells orphan once purged (queue
   rows for an owner who can no longer drain them).

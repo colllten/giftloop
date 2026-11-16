@@ -71,7 +71,33 @@ sequenceDiagram
 
 ## Events and Wishlists
 `com.giftloop.event`: `EventPageResource` (create from the group page, event
-page listing wishlists, edit/delete for group owner/admin) and `EventService`. `com.giftloop.wishlist`:
+page listing wishlists, edit/delete for group owner/admin) and `EventService`.
+`EventType` (`standard`, `exchange`) is picked on the event form; the budget
+field shows only for exchanges (CSS `:has()`).
+`com.giftloop.exchange`: `ExchangePageResource` (HTMX actions under
+`/events/{id}/exchange/*`, each re-rendering `#exchange-panel`) and
+`ExchangeService`. The draw runs in Postgres (ADR 005).
+
+```mermaid
+sequenceDiagram
+  participant B as Browser (HTMX)
+  participant Q as Quarkus
+  participant P as Postgres
+  B->>Q: POST /events/{id}/exchange/draw
+  Q->>P: select private.draw_exchange(id) (caller's JWT)
+  alt not owner/admin
+    P-->>Q: 42501
+    Q-->>B: 403
+  else too few / no draw fits / already drawn
+    P-->>Q: 23514 (DETAIL code)
+    Q-->>B: panel with message
+  else ok
+    P->>P: shuffle, backtrack, insert ExchangeAssignment, set drawn_at
+    Q->>P: select own assignment (RLS: giver only)
+    Q-->>B: panel "You're giving a gift to …"
+  end
+```
+ `com.giftloop.wishlist`:
 `WishlistPageResource` (HTML), `WishlistResource` (JSON reads),
 `WishlistService`. Gift forms swap themselves on validation errors; on success
 the server sends `HX-Retarget: #wishlist-body` with the refreshed body.

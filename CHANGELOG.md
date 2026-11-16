@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Event types: Standard or Secret Santa / Gift Exchange, picked with a short
+  description when creating an event. Exchanges: opt-in participants, optional
+  budget, admin-managed exclusions, and an in-database name draw where each
+  giver sees only their own recipient. Legal pages updated (version 2026-11-17).
 - Group owners and admins can edit (name, last day) and delete events from the
   event page. Event creators who are plain members no longer can (RLS).
 - Sign-up no longer reveals whether an email is registered: it emails a 6-digit

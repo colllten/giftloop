@@ -126,6 +126,39 @@ class EventFlowTest {
                 .body(not(containsString("Ends ")));
     }
 
+    /** The form describes each type; an exchange shows its chip and budget, and can switch back to standard. */
+    @Test
+    void exchangeType() {
+        setUp();
+        member.browser().get(groupPath() + "/events/new").then().statusCode(200)
+                .body(containsString("Secret Santa / Gift Exchange"))
+                .body(containsString(EventType.EXCHANGE.description()))
+                .body(containsString(EventType.STANDARD.description()));
+
+        member.browser().htmxPost(groupPath() + "/events",
+                        Map.of("name", "Swap", "endDate", "", "type", "exchange", "budget", "lots"))
+                .then().statusCode(200).body(containsString("Please enter an amount like 25 or 25.00."));
+        String location = member.browser().htmxPost(groupPath() + "/events",
+                        Map.of("name", "Swap", "endDate", "", "type", "exchange", "budget", "$40"))
+                .then().statusCode(200).extract().header("HX-Redirect");
+        UUID eventId = UUID.fromString(location.substring("/events/".length()));
+
+        member.browser().get(eventPath(eventId)).then().statusCode(200)
+                .body(containsString("Secret Santa"))
+                .body(containsString("Budget $40.00"))
+                .body(containsString("Join the exchange"));
+        member.browser().get(groupPath()).then().statusCode(200).body(containsString("chip-role\">Secret Santa"));
+
+        admin.browser().get(eventPath(eventId) + "/edit").then().statusCode(200)
+                .body(containsString("value=\"40.00\""));
+        admin.browser().htmxPost(eventPath(eventId),
+                        Map.of("name", "Swap", "endDate", "", "type", "standard", "budget", "40"))
+                .then().statusCode(200).header("HX-Redirect", eventPath(eventId));
+        member.browser().get(eventPath(eventId)).then().statusCode(200)
+                .body(not(containsString("Budget")))
+                .body(not(containsString("exchange-panel")));
+    }
+
     /** The owner deletes an event; its wishlists and claims go with it. */
     @Test
     void ownerDeletes() {

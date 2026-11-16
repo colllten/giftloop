@@ -25,7 +25,7 @@ class LegalResourceTest {
         given().when().get(path)
                 .then().statusCode(200)
                 .contentType(containsString("text/html"))
-                .body(containsString("Last updated November 16, 2026"))
+                .body(containsString("Last updated November 17, 2026"))
                 .body(containsString("mailto:privacy@example.com"));
     }
 

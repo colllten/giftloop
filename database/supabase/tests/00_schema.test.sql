@@ -1,10 +1,10 @@
 -- Schema-level guarantees: tables exist, RLS on everywhere, anon has no access.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(28);
 
 select has_table('public', t, format('table %s exists', t))
-from unnest(array['Profile','Group','GroupUser','GroupJoinCode','Event','Wishlist','Gift','Claim','ClaimParticipant','JoinCodeFailure','GiftViewer']) as t;
+from unnest(array['Profile','Group','GroupUser','GroupJoinCode','Event','Wishlist','Gift','Claim','ClaimParticipant','JoinCodeFailure','GiftViewer','ExchangeParticipant','ExchangeExclusion','ExchangeAssignment']) as t;
 
 select is(
   (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -59,6 +59,18 @@ select ok(
   not has_table_privilege('authenticated', 'public."Wishlist"', 'DELETE'),
   'Wishlist has no direct delete (private.remove_wishlist only)'
 );
+
+select ok(
+  not has_table_privilege('authenticated', 'public."ExchangeAssignment"', 'INSERT, UPDATE, DELETE'),
+  'ExchangeAssignment has no direct writes (private.draw_exchange only)'
+);
+
+select ok(
+  not has_column_privilege('authenticated', 'public."Event"', 'drawn_at', 'UPDATE'),
+  'Event.drawn_at has no direct update (draw functions only)'
+);
+
+select has_function('private', 'draw_exchange', array['uuid'], 'private.draw_exchange exists');
 
 select * from finish();
 rollback;

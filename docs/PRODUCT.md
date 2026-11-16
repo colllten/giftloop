@@ -29,12 +29,27 @@ Signed-in users land on **Your groups** (`/`), listing their groups with
 | Rename group | ✓ | ✓ | |
 | Create an event | ✓ | ✓ | ✓ |
 | Edit / delete an event | ✓ | ✓ | |
+| Join / leave a Secret Santa (before the draw) | ✓ | ✓ | ✓ |
+| Remove people, set exclusions, draw names, undo a draw | ✓ | ✓ | |
 | Remove someone | anyone else | members only | |
 | Make / remove admin | ✓ | | |
 | Make someone owner | ✓ (becomes admin) | | |
 | Delete group | ✓ | | |
 | Leave | after handing off ownership | ✓ | ✓ |
 | Delete account | picks or auto-assigns new owners | ✓ | ✓ |
+
+## Event Types
+Chosen when creating an event (admins can change it until names are drawn):
+- **Standard**: everyone makes a wishlist and anyone can claim gifts.
+- **Secret Santa / Gift Exchange**: members opt in, an owner/admin draws names,
+  and each person secretly buys for one other person. Optional budget.
+  - Needs at least 3 people. Exclusions (e.g. partners) block a pair both ways
+    and are visible to owners/admins only.
+  - Each giver sees only their own recipient, with a link to that person's
+    wishlist. Admins can't see other pairs.
+  - Undoing a draw deletes every assignment; drawing again gives new ones.
+  - Wishlists and claims work as in a standard event, so the giver shows up in
+    claims after the reveal.
 
 ## Group Users
 Users within groups can create their wishlists. Others within the group can

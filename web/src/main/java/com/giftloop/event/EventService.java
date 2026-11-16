@@ -56,7 +56,7 @@ public class EventService {
     public List<EventSummary> listForGroup(JsonWebToken jwt, UUID groupId) {
         return run(jwt, c -> {
             try (PreparedStatement s = prepare(c, """
-                    select id, name, end_date
+                    select id, name, end_date, type
                     from "Event"
                     where group_id = ?
                     order by end_date nulls last, lower(name), id""", groupId);
@@ -64,7 +64,7 @@ public class EventService {
                 List<EventSummary> events = new ArrayList<>();
                 while (r.next()) {
                     events.add(new EventSummary(r.getObject("id", UUID.class), r.getString("name"),
-                            r.getObject("end_date", LocalDate.class)));
+                            r.getObject("end_date", LocalDate.class), EventType.fromDb(r.getString("type"))));
                 }
                 return events;
             }
@@ -83,15 +83,17 @@ public class EventService {
     public UUID create(JsonWebToken jwt, UUID groupId, EventForm form) {
         LocalDate endDate = form.endDateValue();
         UUID id = run(jwt, c -> {
-            try (PreparedStatement s = prepare(c,
-                    "insert into \"Event\" (group_id, name, end_date) values (?, ?, ?) returning id",
-                    groupId, form.name(), endDate == null ? null : Date.valueOf(endDate));
+            try (PreparedStatement s = prepare(c, """
+                    insert into "Event" (group_id, name, end_date, type, budget)
+                    values (?, ?, ?, ?::public.event_type, ?) returning id""",
+                    groupId, form.name(), endDate == null ? null : Date.valueOf(endDate), form.type().dbValue(),
+                    form.budgetValue());
                  ResultSet r = s.executeQuery()) {
                 r.next();
                 return r.getObject(1, UUID.class);
             }
         });
-        LOG.infof("User %s created event %s in group %s", jwt.getSubject(), id, groupId);
+        LOG.infof("User %s created %s event %s in group %s", jwt.getSubject(), form.type().dbValue(), id, groupId);
         return id;
     }
 
@@ -105,7 +107,8 @@ public class EventService {
     public Optional<EventDetail> find(JsonWebToken jwt, UUID eventId) {
         return run(jwt, c -> {
             try (PreparedStatement s = prepare(c, """
-                    select e.name, e.end_date, e.group_id, g.name as group_name,
+                    select e.name, e.end_date, e.group_id, g.name as group_name, e.type, e.budget,
+                           e.drawn_at is not null as drawn,
                            private.is_group_admin(e.group_id) as can_manage
                     from "Event" e
                     join "Group" g on g.id = e.group_id
@@ -119,27 +122,33 @@ public class EventService {
                         .map(EventDetail.EventWishlist::id).findFirst().orElse(null);
                 return Optional.of(new EventDetail(eventId, r.getString("name"),
                         r.getObject("end_date", LocalDate.class), r.getObject("group_id", UUID.class),
-                        r.getString("group_name"), wishlists, mine, r.getBoolean("can_manage")));
+                        r.getString("group_name"), EventType.fromDb(r.getString("type")), r.getBigDecimal("budget"),
+                        r.getBoolean("drawn"), wishlists, mine, r.getBoolean("can_manage")));
             }
         });
     }
 
     /**
-     * Changes an event's name and end date (group owner/admin).
+     * Changes an event's name, end date, type and budget (group owner/admin). Switching an exchange
+     * to standard drops its participants and exclusions (database trigger).
      *
      * @param jwt     caller's verified token
      * @param eventId event id
      * @param form    validated form
-     * @throws ForbiddenException if the event is missing or the caller may not edit it
+     * @throws ForbiddenException       if the event is missing or the caller may not edit it
+     * @throws EventTypeLockedException if the type changed after names were drawn
      */
     public void update(JsonWebToken jwt, UUID eventId, EventForm form) {
         LocalDate endDate = form.endDateValue();
         int rows = run(jwt, c -> {
-            try (PreparedStatement s = prepare(c, "update \"Event\" set name = ?, end_date = ? where id = ?",
-                    form.name(), endDate == null ? null : Date.valueOf(endDate), eventId)) {
+            try (PreparedStatement s = prepare(c, """
+                    update "Event" set name = ?, end_date = ?, type = ?::public.event_type, budget = ?
+                    where id = ?""",
+                    form.name(), endDate == null ? null : Date.valueOf(endDate), form.type().dbValue(),
+                    form.budgetValue(), eventId)) {
                 return s.executeUpdate();
             }
-        });
+        }, true);
         if (rows == 0) {
             LOG.warnf("User %s was not allowed to edit event %s", jwt.getSubject(), eventId);
             throw new ForbiddenException();
@@ -192,9 +201,21 @@ public class EventService {
 
     /** Runs as the user; insufficient-privilege errors become {@link ForbiddenException}. */
     private <T> T run(JsonWebToken jwt, SqlWork<T> work) {
+        return run(jwt, work, false);
+    }
+
+    /**
+     * Runs as the user; insufficient-privilege errors become {@link ForbiddenException} and, when
+     * {@code typeChange} is set, a locked-type error becomes {@link EventTypeLockedException}.
+     */
+    private <T> T run(JsonWebToken jwt, SqlWork<T> work, boolean typeChange) {
         try {
             return rls.inUserTransaction(jwt, work);
         } catch (DataAccessException e) {
+            if (typeChange && Sql.CHECK_VIOLATION.equals(sqlState(e)) && "type_locked".equals(Sql.detail(e))) {
+                LOG.debugf("User %s tried to change a drawn exchange's type", jwt.getSubject());
+                throw new EventTypeLockedException();
+            }
             if (Sql.INSUFFICIENT_PRIVILEGE.equals(sqlState(e))) {
                 LOG.warnf("User %s was denied: %s", jwt.getSubject(), e.getCause().getMessage());
                 throw new ForbiddenException();
