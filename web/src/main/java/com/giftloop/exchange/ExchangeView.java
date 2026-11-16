@@ -97,5 +97,21 @@ public record ExchangeView(UUID eventId, boolean drawn, boolean canManage, List<
      * @param nameB their name
      */
     public record Exclusion(UUID userA, String nameA, UUID userB, String nameB) {
+
+        /**
+         * Builds an exclusion with the names in alphabetical order. The database stores the pair
+         * by user id, which would otherwise show the names in an arbitrary order.
+         *
+         * @param idA   one participant
+         * @param nameA their name
+         * @param idB   the other participant
+         * @param nameB their name
+         * @return exclusion, alphabetical by name
+         */
+        public static Exclusion of(UUID idA, String nameA, UUID idB, String nameB) {
+            return nameA.compareToIgnoreCase(nameB) <= 0
+                    ? new Exclusion(idA, nameA, idB, nameB)
+                    : new Exclusion(idB, nameB, idA, nameA);
+        }
     }
 }

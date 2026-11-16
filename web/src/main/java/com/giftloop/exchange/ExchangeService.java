@@ -292,7 +292,7 @@ public class ExchangeService {
              ResultSet r = s.executeQuery()) {
             List<ExchangeView.Exclusion> exclusions = new ArrayList<>();
             while (r.next()) {
-                exclusions.add(new ExchangeView.Exclusion(r.getObject("user_a", UUID.class), r.getString("name_a"),
+                exclusions.add(ExchangeView.Exclusion.of(r.getObject("user_a", UUID.class), r.getString("name_a"),
                         r.getObject("user_b", UUID.class), r.getString("name_b")));
             }
             return exclusions;
