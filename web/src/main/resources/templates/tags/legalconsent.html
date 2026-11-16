@@ -1,0 +1,7 @@
+{! Required Terms/Privacy checkbox (sign-up and /legal/accept). Posts acceptTerms=true.
+   Params: checked (boolean), error (string or null). Links open in a new tab so the form isn't lost. !}
+<label class="choice"><input type="checkbox" name="acceptTerms" value="true" required{#if checked} checked{/if}
+  {#if error}aria-invalid="true" aria-describedby="terms-error"{/if}>
+  <span>I'm at least 13 and agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a>
+  and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span></label>
+{#if error}<p id="terms-error" class="error" role="alert">{error}</p>{/if}

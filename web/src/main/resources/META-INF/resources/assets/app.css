@@ -235,6 +235,31 @@ details form { margin-top: var(--space-4); }
 .page-narrow { max-width: var(--content-width); }
 .page-head { margin-bottom: var(--space-5); }
 .page-head > h1 { margin-bottom: var(--space-1); }
+.site-footer { border-top: 1px solid var(--color-border); margin-top: var(--space-6); }
+.site-footer-inner {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--space-4);
+  max-width: var(--page-width); margin: 0 auto; padding: var(--space-3) var(--space-4);
+}
+.site-footer a {
+  display: inline-flex; align-items: center; min-height: var(--tap);
+  font-size: var(--text-sm); color: var(--color-text-muted);
+}
+.site-footer a:hover { color: var(--color-text); }
+.choice a { font-weight: 700; }
+
+/* ---------- Legal pages ---------- */
+.legal h2 { font-size: var(--text-lg); }
+.legal li { margin-bottom: var(--space-2); }
+.legal .toc { padding-left: var(--space-5); }
+.legal .toc li { margin-bottom: var(--space-1); }
+/* Wide tables scroll inside the page instead of widening it. */
+.table-scroll { overflow-x: auto; margin: var(--space-3) 0; }
+.table-scroll table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); }
+.table-scroll th, .table-scroll td {
+  text-align: left; vertical-align: top; padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.table-scroll th { font-weight: 700; background: var(--color-surface-sunken); }
 
 /* ---------- Groups ---------- */
 .card > h2:first-child { margin-top: 0; }
