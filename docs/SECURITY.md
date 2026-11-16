@@ -11,6 +11,8 @@ Supabase Auth. A `Profile` row is created for each new auth user by trigger.
   a reset), as is any password from someone who pre-registered the email.
 - Supabase "Confirm email" (`enable_confirmations`) must stay on in every project,
   so the raw `/signup` API can't create active accounts for unverified emails.
+- Sign-up requires ticking the Terms/Privacy checkbox; acceptance is recorded
+  server-side (`docs/LEGAL.md`).
 - Password reset: emailed recovery code → session issued → new password set via
   Supabase `PUT /user`.
 - Sign-up, code and reset requests respond identically whether or not the

@@ -75,6 +75,16 @@ RLS policies must be configured for each table.
 
 Additional database rules can be added in this section if determined later.
 
+# Legal Documents
+The Terms of Service (`/terms`), Privacy Policy (`/privacy`) and Cookie Notice
+(`/cookies`) must always match what the app does. Any change that affects
+them must update the affected document(s) in the same PR. This includes
+changes to personal data collected, who can see what, retention or deletion,
+third-party services, cookies or browser storage, sign-in methods, age rules,
+group roles, or logging of personal data. Material changes also bump
+`giftloop.legal.version`. If unsure whether a change applies, ask. Checklist
+and details: `docs/LEGAL.md`.
+
 # Security
 GiftLoop will utilize Supabase auth.
 
