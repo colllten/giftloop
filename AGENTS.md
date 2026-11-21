@@ -17,7 +17,7 @@ Later stages of development will include cross-platform mobile development.
 # Architecture
 See `docs/ARCHITECTURE.md`. All user-facing DB access goes through
 `RlsContext` (ADR 001, ADR 002).
-CI/CD: `docs/CICD.md`.
+CI/CD: `docs/CICD.md`. Going live: `docs/DEPLOYMENT.md`.
 
 # Coding Conventions
 Code should conform to "clean code" within reason. Strict conformance is too
