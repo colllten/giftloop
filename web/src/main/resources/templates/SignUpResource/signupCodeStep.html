@@ -21,7 +21,7 @@
   </div>
   <button class="primary" type="submit">Create account</button>
 </form>
-<form hx-post="/signup" hx-target="#auth-step" style="margin-top:1rem">
+<form hx-post="/signup" hx-target="#auth-step" class="form-gap">
   {#csrf /}
   <input type="hidden" name="email" value="{email}">
   <input type="hidden" name="next" value="{next}">

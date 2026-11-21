@@ -1,5 +1,6 @@
 package com.giftloop.observability;
 
+import com.giftloop.web.ErrorPages;
 import com.giftloop.web.Redirects;
 import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.qute.TemplateInstance;
@@ -23,9 +24,9 @@ import java.util.Map;
  * (ADR 006). Each one gets a reference ID that is logged with the stack trace, counted,
  * and shown to the user so a report can be matched to the log.
  * <p>
- * Client errors ({@link WebApplicationException} below 500, e.g. 404) pass through
- * unchanged; {@code AuthRedirectMapper} still wins for auth failures because it maps
- * more specific types.
+ * Client errors ({@link WebApplicationException} below 500) go to {@link ErrorPages},
+ * which shows a friendly page for empty 403/404s in browsers and passes the rest through;
+ * {@code AuthRedirectMapper} still wins for auth failures because it maps more specific types.
  */
 public class UnhandledErrorMapper {
 
@@ -34,14 +35,17 @@ public class UnhandledErrorMapper {
     static final String MDC_ERROR_ID = "errorId";
 
     private final AppMetrics metrics;
+    private final ErrorPages errorPages;
 
     /**
      * Creates the mapper.
      *
-     * @param metrics app metrics
+     * @param metrics    app metrics
+     * @param errorPages friendly 403/404 pages
      */
-    public UnhandledErrorMapper(AppMetrics metrics) {
+    public UnhandledErrorMapper(AppMetrics metrics, ErrorPages errorPages) {
         this.metrics = metrics;
+        this.errorPages = errorPages;
     }
 
     /**
@@ -73,16 +77,16 @@ public class UnhandledErrorMapper {
      * @param request current request
      * @param headers request headers
      * @param routing Vert.x context (for the already-authenticated user, if any)
-     * @return the original client-error response, or a 500 with a reference ID
+     * @return a client-error response (friendly page or original), or a 500 with a reference ID
      */
     @ServerExceptionMapper
     public Response unhandled(Exception e, ContainerRequestContext request, HttpHeaders headers,
                               RoutingContext routing) {
+        String path = request.getUriInfo().getRequestUri().getRawPath();
         if (e instanceof WebApplicationException wae && wae.getResponse().getStatus() < 500) {
-            return wae.getResponse();
+            return errorPages.forClientError(wae.getResponse(), path, headers);
         }
         String errorId = ErrorIds.next();
-        String path = request.getUriInfo().getRequestUri().getRawPath();
         MDC.put(MDC_ERROR_ID, errorId);
         try {
             LOG.errorf(e, "Unhandled error errorId=%s %s %s user=%s",

@@ -10,6 +10,8 @@ GiftLoop's users range from teenagers to the elderly who may not be tech-savvy.
 # Primary Workflows
 
 ## Group Setup
+Signed-out visitors see a landing page at `/` (what GiftLoop does, how it
+works, sign-up/sign-in and a link for people with a join code).
 Signed-in users land on **Your groups** (`/`), listing their groups with
 **Create a group** and **Join with a code**.
 

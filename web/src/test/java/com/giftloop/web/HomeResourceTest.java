@@ -5,23 +5,31 @@ import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
 
 /**
- * Landing page, HTMX asset and fragment rendering.
+ * Signed-out landing page and its assets.
  */
 @QuarkusTest
 class HomeResourceTest {
 
-    /** Landing page renders and references the bundled HTMX script. */
+    /** Signed-out home is the landing page: pitch, sign-up/sign-in and join links, HTMX loaded. */
     @Test
-    void indexRendersWithHtmx() {
+    void landingPageForSignedOutVisitors() {
         given().when().get("/")
                 .then().statusCode(200)
                 .contentType(containsString("text/html"))
-                .body(containsString("<h1>GiftLoop</h1>"))
-                .body(containsString("/_static/htmx.org/dist/htmx.min.js"))
-                .body(containsString("hx-get=\"/fragments/ping\""));
+                .body(containsString("Wishlists your whole family can share"))
+                .body(containsString("How it works"))
+                .body(containsString("href=\"/signup\""))
+                .body(containsString("href=\"/signin\""))
+                .body(containsString("href=\"/join\""))
+                .body(containsString("/_static/htmx.org/dist/htmx.min.js"));
+    }
+
+    /** The old HTMX demo endpoint is gone. */
+    @Test
+    void pingDemoRemoved() {
+        given().when().get("/fragments/ping").then().statusCode(404);
     }
 
     /** HTMX script is served from the mvnpm dependency. */
@@ -43,14 +51,5 @@ class HomeResourceTest {
                 .body(containsString("--color-primary"));
         given().when().get("/assets/fonts/nunito-sans-latin.woff2").then().statusCode(200);
         given().when().get("/assets/fonts/bricolage-grotesque-latin.woff2").then().statusCode(200);
-    }
-
-    /** Fragment endpoint returns a snippet, not a full page. */
-    @Test
-    void pingReturnsFragment() {
-        given().when().get("/fragments/ping")
-                .then().statusCode(200)
-                .body(containsString("Server is up"))
-                .body(not(containsString("<html")));
     }
 }

@@ -4,7 +4,7 @@
 
 # Frontend Responsibilities
 Qute templates (`web/src/main/resources/templates/`) render full pages; HTMX
-requests fragment endpoints (`/fragments/...`) and swaps them in. HTMX is served
+posts to page endpoints and swaps the returned fragments in. HTMX is served
 locally from the `org.mvnpm:htmx.org` jar at `/_static/htmx.org/dist/htmx.min.js`.
 Styles and fonts are static files under `/assets/` (see `docs/DESIGN.md`).
 
@@ -302,7 +302,10 @@ DEBUG and mapped by the calling service (e.g. `42501` → 403). Missing/invalid 
 
 Anything else that escapes a resource reaches `UnhandledErrorMapper`
 ([ADR 006](decisions/006-observability-without-vendor.md)). Client errors
-(`WebApplicationException` < 500) pass through unchanged; everything else gets a
+(`WebApplicationException` < 500) go to `ErrorPages`: an empty 403/404 for a
+browser (HTML `Accept` or HTMX) becomes a friendly page or `<main>` fragment;
+the rest pass through unchanged. URLs no endpoint or file matches get the same
+404 page from a last-resort Vert.x route. Everything else gets a
 10-char reference ID (`ErrorIds`) and a 500: an error page, an HTMX fragment
 retargeted into `<main>`, or JSON `{error, errorId}` for `/api/**`. Exception
 details never reach the response.

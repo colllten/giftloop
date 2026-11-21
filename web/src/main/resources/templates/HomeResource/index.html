@@ -1,7 +1,7 @@
 {#include base}
-{#title}GiftLoop{/title}
+{#title}{#if profile}Your groups · GiftLoop{#else}GiftLoop · Shared wishlists for families and groups{/if}{/title}
 {#header}{#if profile}{#appheader nav=true current='groups' /}{#else}{#appheader /}{/if}{/header}
-{#width}{#if profile}page-wide{#else}page-narrow{/if}{/width}
+{#width}page-wide{/width}
 {#main}
 {#if profile}
 <h1>Hi, {profile.displayName}!</h1>
@@ -22,11 +22,48 @@
 {/if}
 <p class="row"><a class="button primary" href="/groups/new">Create a group</a> <a class="button" href="/join">Join with a code</a></p>
 {#else}
-<h1>GiftLoop</h1>
-<p>Shared wishlists for families and groups.</p>
-<p class="row"><a class="button primary" href="/signin">Sign in</a> <a class="button" href="/signup">Create an account</a></p>
-<button hx-get="/fragments/ping" hx-target="#ping-result" hx-swap="innerHTML">Check server</button>
-<p id="ping-result" aria-live="polite"></p>
+<section class="hero">
+  <h1>Wishlists your whole family can share</h1>
+  <p class="lead">Make a wishlist for a birthday, a holiday or a Secret Santa. Everyone else claims what they'll buy, so nobody buys the same gift twice, and you won't see who's getting what until after the event.</p>
+  <p class="hero-actions"><a class="button primary" href="/signup">Create an account</a> <a class="button" href="/signin">Sign in</a></p>
+  <p class="hint">Someone sent you a join code? <a href="/join">Join their group</a>.</p>
+</section>
+
+<h2>How it works</h2>
+<ol class="steps">
+  <li>
+    <h3>Start a group</h3>
+    <p>Create a group for your family or friends, then share its join code.</p>
+  </li>
+  <li>
+    <h3>Make your wishlist</h3>
+    <p>Add gifts for an event with prices, links and photos. Paste a store link to fill in the details.</p>
+  </li>
+  <li>
+    <h3>Claim a gift</h3>
+    <p>Claim what you'll buy on someone else's list. Everyone sees it's taken, and you can split it with co-buyers.</p>
+  </li>
+</ol>
+
+<h2>Made for gift-giving</h2>
+<ul class="feature-list">
+  <li class="card">
+    <h3>The surprise stays a surprise</h3>
+    <p>You can't see who claimed gifts on your list until the day after the event, unless a group owner or admin shows them early.</p>
+  </li>
+  <li class="card">
+    <h3>Secret Santa built in</h3>
+    <p>Draw names, set a budget and keep partners from drawing each other. Each person sees only who they're buying for.</p>
+  </li>
+  <li class="card">
+    <h3>Gifts that aren't on the list</h3>
+    <p>Buying something else? Record it on their list so others know it's covered. They see it after the event, like any claim.</p>
+  </li>
+  <li class="card">
+    <h3>Private to your group</h3>
+    <p>Only people in your group see your wishlists, and you can limit a gift to the people you pick.</p>
+  </li>
+</ul>
 {/if}
 {/main}
 {/include}

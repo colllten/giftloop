@@ -1,5 +1,6 @@
 # CI/CD
 GitHub Actions, in `.github/`. No app hosting yet; `main` publishes an image.
+Launch steps: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 | Workflow | Trigger | Does |
 |---|---|---|

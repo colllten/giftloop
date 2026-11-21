@@ -8,7 +8,8 @@ Source: `web/src/main/resources/META-INF/resources/assets/app.css`, served at
 
 ## Rules
 - Style through tokens (`var(--color-*)`, `--space-*`, `--text-*`). No hex
-  values or inline colors in templates.
+  values or inline colors in templates, and no `style=""` attributes at all
+  (the CSP blocks them, see SECURITY.md).
 - Every text/background pair must meet WCAG AA (4.5:1). Input borders and
   focus rings must reach 3:1. Recheck when adding a token.
 - Body text is 18px (`--text-base`). Nothing smaller than 16px (`--text-sm`).
@@ -109,6 +110,10 @@ media queries because they can't read custom properties.
 | `.visibility` / `.viewer-picker` | Gift visibility fieldset; member checkboxes show only when "Only people I pick" is chosen |
 | `.type-cards` / `.type-card` / `.type-card-title` | Event type radio cards with a `.hint` description; selected card gets a thicker primary border. `.exchange-budget` shows only when "exchange" is checked |
 | `.exchange-panel` / `.exchange-recipient` | Secret Santa section on the event page; the giver's recipient in a `.banner` |
+| `.form-gap` | Space above a secondary form that follows another (e.g. "Send a new code") |
+| `.hero` / `.lead` / `.hero-actions` | Signed-out landing intro: headline, larger lead text, sign-up/sign-in buttons |
+| `.steps` | Numbered "How it works" list; numbers in filled circles, three columns on desktop |
+| `.feature-list` | Grid of `.card` feature blurbs on the landing page, two columns on desktop |
 | `.wishlist-layout` | Wishlist page grid: `.wishlist-gifts`, `.wishlist-add`, `.wishlist-settings` |
 
 Use at most one `.primary` button per view.

@@ -33,6 +33,19 @@ Supabase Auth. A `Profile` row is created for each new auth user by trigger.
   Access tokens on other devices stay valid until expiry; pages treat a token
   with no `Profile` row as signed out (cookies cleared, sent to sign-in).
 
+## Response Headers
+`SecurityHeaders` (Vert.x route, all paths except `/q/`):
+- CSP: `'self'` only for scripts, styles, fonts and requests; images also
+  `data:` (staged gift photo previews); `frame-ancestors 'none'`,
+  `form-action 'self'`. So templates can't use inline `<script>`, `style=""`,
+  `on*=` handlers or `hx-on`.
+- `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: same-origin` (gift links don't leak GiftLoop URLs),
+  `Permissions-Policy` (camera, mic, location, payment, USB off),
+  `Cross-Origin-Opener-Policy: same-origin`.
+- HSTS (1 year, no subdomains) only when `giftloop.security.hsts` is on: prod
+  yes, dev/test no.
+
 ## Authorization
 Enforced in Postgres with RLS using the caller's JWT. See
 [ADR 001](decisions/001-rls-with-user-jwt.md) and [DATABASE.md](DATABASE.md#claim-visibility).

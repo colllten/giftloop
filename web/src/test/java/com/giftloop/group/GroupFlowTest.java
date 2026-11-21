@@ -93,6 +93,9 @@ class GroupFlowTest {
         join(second, "nope").then().body(containsString("8 letters and numbers"));
         join(second, "ZZZZ-ZZZZ").then().body(containsString("find a group with that code"));
         outsider.browser().get(path(id, "")).then().statusCode(404);
+        // Browsers get the friendly page (ErrorPages); other clients the bare status above.
+        outsider.browser().request().accept("text/html").get(path(id, ""))
+                .then().statusCode(404).body(containsString("We couldn't find that page"));
 
         String friendly = (code.substring(0, 4) + "-" + code.substring(4)).toLowerCase();
         join(second, friendly).then().statusCode(200).header("HX-Redirect", path(id, ""));
@@ -141,7 +144,10 @@ class GroupFlowTest {
         join(second, oldCode);
 
         second.browser().get(path(id, ""));
-        second.browser().htmxPost(path(id, "/code"), Map.of()).then().statusCode(403);
+        second.browser().htmxPost(path(id, "/code"), Map.of()).then().statusCode(403)
+                .header("HX-Retarget", "main")
+                .body(containsString("You can't do that here"))
+                .body(not(containsString("<html")));
 
         owner.browser().get(path(id, ""));
         owner.browser().htmxPost(path(id, "/code"), Map.of())

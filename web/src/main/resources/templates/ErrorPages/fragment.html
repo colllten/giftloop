@@ -1,0 +1,11 @@
+{! Friendly 403/404 (ErrorPages). HTMX requests swap this into <main>. !}
+<section role="alert">
+  {#if status == 403}
+  <h1>You can't do that here</h1>
+  <p>Only some people in a group can do this, like the owner or an admin. Ask them if you think you should be able to.</p>
+  {#else}
+  <h1>We couldn't find that page</h1>
+  <p>It may have been deleted, or it belongs to a group you're not in. Check the link, or ask the person who shared it.</p>
+  {/if}
+  <p><a class="button primary" href="/">Go home</a></p>
+</section>
