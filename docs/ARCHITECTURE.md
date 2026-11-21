@@ -403,6 +403,9 @@ before onboarding. See `docs/LEGAL.md`; update those pages with any change
 listed there.
 
 # Third-party Integrations
+Hosting: Fly.io (`web/fly.toml`, [DEPLOYMENT.md](DEPLOYMENT.md)). The Privacy
+Policy covers it under "hosting providers".
+
 Link auto-fill fetches retailer pages and images directly from Quarkus
 (no third-party preview API; see ADR 004).
 

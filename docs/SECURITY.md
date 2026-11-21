@@ -90,8 +90,10 @@ Quarkus fetches user-supplied URLs, so `SafeFetcher` restricts them:
 Health and metrics are on port 9000 (ADR 006). Keep it on the private network
 only: metrics reveal traffic volumes and error rates.
 
-### Production egress (when hosting is chosen)
-Defense in depth for the app container, on whatever platform hosts it:
+### Production egress
+Defense in depth for the app container. Fly.io has no per-app egress
+firewall, so on Fly these rules rely on `SafeFetcher` (which also rejects Fly's
+private `fdaa::/16`); apply them at the network layer if the host changes:
 - Allow: DNS to the platform resolver; Supabase (HTTPS 443, Postgres 5432/6543);
   general HTTPS/HTTP 443/80 to the internet (link previews).
 - Deny: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 127.0.0.0/8,

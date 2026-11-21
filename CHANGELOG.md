@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+- Fly.io deployment: `web/fly.toml` (iad, one auto-stopping machine, private
+  health and metrics on 9000) and an opt-in `deploy` job in CI after
+  `production` approval. See `docs/DEPLOYMENT.md`.
+- Quarkus honours `X-Forwarded-*` from the TLS proxy, so generated links (the
+  `/add` bookmarklet) use `https://`.
+- Legal contact defaults to `giftloopsupport@gmail.com`.
+
 ## 0.1.0 (MVP)
 - Signed-out landing page at `/`: what GiftLoop does, how it works, sign-up,
   sign-in and a link for people with a join code. Removes the HTMX ping demo.

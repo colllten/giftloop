@@ -1,5 +1,6 @@
 # CI: validates the database and web app on every PR and push to main.
-# Pushes to main also publish the JVM image to GHCR (no deploy yet).
+# Pushes to main also publish the JVM image to GHCR and, once enabled, deploy
+# the same build to Fly.io after `production` approval (docs/DEPLOYMENT.md).
 name: CI
 
 on:
@@ -113,3 +114,28 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy app (Fly.io)
+    needs: [image]
+    # Off until the repo variable FLY_DEPLOY_ENABLED is 'true' (docs/DEPLOYMENT.md).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.FLY_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    concurrency:
+      group: deploy-app-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: quarkus-app
+          path: web/target/quarkus-app/
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # Builds on the runner (no Fly builder); --ha=false keeps a single machine.
+      - name: Deploy
+        working-directory: web
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --local-only --ha=false --image-label "sha-${GITHUB_SHA}"
