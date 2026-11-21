@@ -111,6 +111,9 @@ media queries because they can't read custom properties.
 | `.type-cards` / `.type-card` / `.type-card-title` | Event type radio cards with a `.hint` description; selected card gets a thicker primary border. `.exchange-budget` shows only when "exchange" is checked |
 | `.exchange-panel` / `.exchange-recipient` | Secret Santa section on the event page; the giver's recipient in a `.banner` |
 | `.form-gap` | Space above a secondary form that follows another (e.g. "Send a new code") |
+| `.hero` / `.lead` / `.hero-actions` | Signed-out landing intro: headline, larger lead text, sign-up/sign-in buttons |
+| `.steps` | Numbered "How it works" list; numbers in filled circles, three columns on desktop |
+| `.feature-list` | Grid of `.card` feature blurbs on the landing page, two columns on desktop |
 | `.wishlist-layout` | Wishlist page grid: `.wishlist-gifts`, `.wishlist-add`, `.wishlist-settings` |
 
 Use at most one `.primary` button per view.

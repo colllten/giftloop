@@ -4,7 +4,7 @@
 
 # Frontend Responsibilities
 Qute templates (`web/src/main/resources/templates/`) render full pages; HTMX
-requests fragment endpoints (`/fragments/...`) and swaps them in. HTMX is served
+posts to page endpoints and swaps the returned fragments in. HTMX is served
 locally from the `org.mvnpm:htmx.org` jar at `/_static/htmx.org/dist/htmx.min.js`.
 Styles and fonts are static files under `/assets/` (see `docs/DESIGN.md`).
 

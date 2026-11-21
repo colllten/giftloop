@@ -14,21 +14,15 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.openapi.annotations.Operation;
-import org.jboss.logging.Logger;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * Landing page (signed-in: the user's groups; signed-out: sign-in prompt) and HTMX demo fragment.
+ * Home page: the user's groups when signed in, the product landing page when signed out.
  */
 @Path("/")
 @Produces(MediaType.TEXT_HTML)
 public class HomeResource {
-
-    private static final Logger LOG = Logger.getLogger(HomeResource.class);
 
     private final SecurityIdentity identity;
     private final JsonWebToken jwt;
@@ -63,20 +57,12 @@ public class HomeResource {
          * @return the rendered page
          */
         static native TemplateInstance index(Profile profile, List<GroupSummary> groups);
-
-        /**
-         * HTMX fragment confirming the server responded.
-         *
-         * @param time server time, ISO-8601 UTC
-         * @return the rendered fragment
-         */
-        static native TemplateInstance ping(String time);
     }
 
     /**
-     * Renders the landing page.
+     * Renders the home page.
      *
-     * @return landing page template
+     * @return home page template
      */
     @GET
     @RequiresOnboarding
@@ -86,19 +72,5 @@ public class HomeResource {
             return Templates.index(null, List.of());
         }
         return Templates.index(profiles.findOwn(jwt).orElse(null), groups.listMine(jwt));
-    }
-
-    /**
-     * Returns a small HTML fragment for HTMX to swap in.
-     *
-     * @return ping fragment with the current server time
-     */
-    @GET
-    @Path("fragments/ping")
-    @Operation(hidden = true)
-    public TemplateInstance ping() {
-        String now = OffsetDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-        LOG.debugf("Ping fragment requested at %s", now);
-        return Templates.ping(now);
     }
 }
