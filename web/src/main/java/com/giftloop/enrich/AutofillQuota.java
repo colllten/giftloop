@@ -1,5 +1,6 @@
 package com.giftloop.enrich;
 
+import com.giftloop.observability.AppMetrics;
 import com.giftloop.security.DataAccessException;
 import com.giftloop.security.RlsContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -28,14 +29,17 @@ public class AutofillQuota {
     private static final Logger LOG = Logger.getLogger(AutofillQuota.class);
 
     private final RlsContext rls;
+    private final AppMetrics metrics;
 
     /**
      * Creates the quota.
      *
-     * @param rls user-scoped DB access
+     * @param rls     user-scoped DB access
+     * @param metrics app metrics
      */
-    public AutofillQuota(RlsContext rls) {
+    public AutofillQuota(RlsContext rls, AppMetrics metrics) {
         this.rls = rls;
+        this.metrics = metrics;
     }
 
     /**
@@ -55,6 +59,7 @@ public class AutofillQuota {
             if (RATE_LIMITED.equals(sqlState(e))) {
                 Duration retryAfter = retryAfter(e, WINDOW);
                 LOG.warnf("User %s hit the auto-fill limit; retry after %s", jwt.getSubject(), retryAfter);
+                metrics.rateLimited(AppMetrics.Limit.AUTOFILL);
                 throw new AutofillRateLimitedException(retryAfter);
             }
             throw e;

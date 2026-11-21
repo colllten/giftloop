@@ -35,13 +35,17 @@ public class LinkPreviewService {
      * @param preview details found (null on failure)
      * @param image   normalized JPEG photo, or null
      * @param problem user-facing message when nothing could be read, else null
+     * @param outcome what happened, for metrics
      */
-    public record Result(LinkPreview preview, byte[] image, String problem) {
+    public record Result(LinkPreview preview, byte[] image, String problem, Outcome outcome) {
 
-        static Result failed(String problem) {
-            return new Result(null, null, problem);
+        static Result failed(String problem, Outcome outcome) {
+            return new Result(null, null, problem, outcome);
         }
     }
+
+    /** How an auto-fill attempt ended (metric tag; see {@code AppMetrics#autofillDone}). */
+    public enum Outcome { INVALID_LINK, FETCH_FAILED, NO_DETAILS, FILLED }
 
     /**
      * Creates the service.
@@ -64,21 +68,23 @@ public class LinkPreviewService {
         try {
             uri = new URI(url);
         } catch (URISyntaxException | NullPointerException e) {
-            return Result.failed("That doesn't look like a link. Please check it and try again.");
+            return Result.failed("That doesn't look like a link. Please check it and try again.", Outcome.INVALID_LINK);
         }
         SafeFetcher.Fetched page;
         try {
             page = fetcher.fetch(uri, SafeFetcher.Kind.HTML);
         } catch (SafeFetcher.FetchException e) {
             LOG.infof("Link preview failed for %s: %s", uri.getHost(), e.getMessage());
-            return Result.failed("We couldn't read details from that site. Please fill them in below.");
+            return Result.failed("We couldn't read details from that site. Please fill them in below.",
+                    Outcome.FETCH_FAILED);
         }
         LinkPreview preview = ProductMetadataParser.parse(decode(page), page.uri());
         if (preview.isEmpty()) {
             LOG.infof("Link preview found nothing on %s", uri.getHost());
-            return new Result(preview, null, "We couldn't find product details on that page. Please fill them in below.");
+            return new Result(preview, null, "We couldn't find product details on that page. Please fill them in below.",
+                    Outcome.NO_DETAILS);
         }
-        return new Result(preview, photo(preview.imageUrl()), null);
+        return new Result(preview, photo(preview.imageUrl()), null, Outcome.FILLED);
     }
 
     /** Fetches and normalizes the product photo; null if missing or unusable. */

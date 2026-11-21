@@ -29,6 +29,10 @@ flowchart LR
 The app requires `GIFTLOOP_CONTACT_EMAIL` (shown in the legal pages) in
 production, alongside the `SUPABASE_*` variables.
 
+Port 8080 serves the app; port 9000 is the management interface (`/q/health`,
+`/q/metrics`). Point health checks and the Prometheus scraper at 9000 and never
+expose it publicly (ADR 006).
+
 ## Repository setup (one-time)
 - **Environment `production`**: required reviewer = repo owner. Secrets:
   `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`.

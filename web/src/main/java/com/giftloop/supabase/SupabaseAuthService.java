@@ -1,11 +1,16 @@
 package com.giftloop.supabase;
 
+import com.giftloop.observability.AppMetrics;
+import com.giftloop.observability.AppMetrics.CodeFlow;
+import com.giftloop.observability.AppMetrics.SignInMethod;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Sign-up (emailed code), sign-in (password or emailed code), password reset, refresh and sign-out
@@ -21,14 +26,17 @@ public class SupabaseAuthService {
     static final String OTP_NO_ACCOUNT = "otp_disabled";
 
     private final SupabaseAuthApi api;
+    private final AppMetrics metrics;
 
     /**
      * Creates the service.
      *
-     * @param api Supabase Auth REST client
+     * @param api     Supabase Auth REST client
+     * @param metrics app metrics (auth counters)
      */
-    public SupabaseAuthService(@RestClient SupabaseAuthApi api) {
+    public SupabaseAuthService(@RestClient SupabaseAuthApi api, AppMetrics metrics) {
         this.api = api;
+        this.metrics = metrics;
     }
 
     /**
@@ -40,7 +48,8 @@ public class SupabaseAuthService {
      * @param email email address
      */
     public void sendSignUpCode(String email) {
-        api.sendOtp(Map.of("email", email, "create_user", true));
+        countedRun(() -> api.sendOtp(Map.of("email", email, "create_user", true)),
+                ok -> metrics.codeSent(CodeFlow.SIGNUP, ok));
         LOG.debug("Sign-up code sent");
     }
 
@@ -52,7 +61,8 @@ public class SupabaseAuthService {
      * @return session
      */
     public AuthSession signInWithPassword(String email, String password) {
-        return api.token("password", Map.of("email", email, "password", password));
+        return counted(() -> api.token("password", Map.of("email", email, "password", password)),
+                ok -> metrics.signIn(SignInMethod.PASSWORD, ok));
     }
 
     /**
@@ -64,11 +74,15 @@ public class SupabaseAuthService {
     public void sendSignInCode(String email) {
         try {
             api.sendOtp(Map.of("email", email, "create_user", false));
+            metrics.codeSent(CodeFlow.SIGNIN, true);
             LOG.debug("Sign-in code sent");
         } catch (SupabaseException e) {
             if (!OTP_NO_ACCOUNT.equals(e.errorCode())) {
+                metrics.codeSent(CodeFlow.SIGNIN, false);
                 throw e;
             }
+            // Counted as sent: to the user (and the metric) unknown emails look the same.
+            metrics.codeSent(CodeFlow.SIGNIN, true);
             LOG.debug("Sign-in code requested for unknown email; ignored");
         }
     }
@@ -79,7 +93,7 @@ public class SupabaseAuthService {
      * @param email email address
      */
     public void sendPasswordResetCode(String email) {
-        api.recover(Map.of("email", email));
+        countedRun(() -> api.recover(Map.of("email", email)), ok -> metrics.codeSent(CodeFlow.RESET, ok));
         LOG.debug("Password reset code sent");
     }
 
@@ -91,7 +105,8 @@ public class SupabaseAuthService {
      * @return session
      */
     public AuthSession verifyPasswordResetCode(String email, String code) {
-        return api.verify(Map.of("email", email, "token", code, "type", "recovery"));
+        return counted(() -> api.verify(Map.of("email", email, "token", code, "type", "recovery")),
+                ok -> metrics.signIn(SignInMethod.RESET, ok));
     }
 
     /**
@@ -113,7 +128,8 @@ public class SupabaseAuthService {
      * @return session
      */
     public AuthSession verifySignInCode(String email, String code) {
-        return api.verify(Map.of("email", email, "token", code, "type", "email"));
+        return counted(() -> api.verify(Map.of("email", email, "token", code, "type", "email")),
+                ok -> metrics.signIn(SignInMethod.CODE, ok));
     }
 
     /**
@@ -123,7 +139,8 @@ public class SupabaseAuthService {
      * @return new session
      */
     public Uni<AuthSession> refresh(String refreshToken) {
-        return api.tokenAsync("refresh_token", Map.of("refresh_token", refreshToken));
+        return api.tokenAsync("refresh_token", Map.of("refresh_token", refreshToken))
+                .onItemOrFailure().invoke((session, failure) -> metrics.sessionRefresh(failure == null));
     }
 
     /**
@@ -158,5 +175,37 @@ public class SupabaseAuthService {
             case "over_email_send_rate_limit", "over_request_rate_limit" -> "Too many attempts. Please wait a minute and try again.";
             default -> "Something went wrong. Please try again.";
         };
+    }
+
+    /**
+     * Runs a Supabase call and reports whether it succeeded.
+     *
+     * @param call   the call
+     * @param record receives {@code true} on success, {@code false} if it threw
+     * @param <T>    result type
+     * @return the call's result
+     */
+    private static <T> T counted(Supplier<T> call, Consumer<Boolean> record) {
+        try {
+            T result = call.get();
+            record.accept(true);
+            return result;
+        } catch (RuntimeException e) {
+            record.accept(false);
+            throw e;
+        }
+    }
+
+    /**
+     * {@link #counted} for calls without a result.
+     *
+     * @param call   the call
+     * @param record receives the outcome
+     */
+    private static void countedRun(Runnable call, Consumer<Boolean> record) {
+        counted(() -> {
+            call.run();
+            return null;
+        }, record);
     }
 }

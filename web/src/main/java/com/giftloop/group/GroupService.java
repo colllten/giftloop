@@ -1,5 +1,6 @@
 package com.giftloop.group;
 
+import com.giftloop.observability.AppMetrics;
 import com.giftloop.security.DataAccessException;
 import com.giftloop.security.RlsContext;
 import com.giftloop.security.Sql;
@@ -42,14 +43,17 @@ public class GroupService {
     private static final Duration JOIN_FAILURE_WINDOW = Duration.ofMinutes(15);
 
     private final RlsContext rls;
+    private final AppMetrics metrics;
 
     /**
      * Creates the service.
      *
-     * @param rls user-scoped DB access
+     * @param rls     user-scoped DB access
+     * @param metrics app metrics
      */
-    public GroupService(RlsContext rls) {
+    public GroupService(RlsContext rls, AppMetrics metrics) {
         this.rls = rls;
+        this.metrics = metrics;
     }
 
     /**
@@ -129,6 +133,7 @@ public class GroupService {
             }
         });
         LOG.infof("User %s created group %s", jwt.getSubject(), id);
+        metrics.action(AppMetrics.Action.GROUP_CREATED);
         return id;
     }
 
@@ -161,6 +166,7 @@ public class GroupService {
             if (RATE_LIMITED.equals(sqlState(e))) {
                 Duration retryAfter = retryAfter(e, JOIN_FAILURE_WINDOW);
                 LOG.warnf("User %s is rate limited from joining groups for %s", jwt.getSubject(), retryAfter);
+                metrics.rateLimited(AppMetrics.Limit.JOIN);
                 throw new JoinRateLimitedException(retryAfter);
             }
             throw e;
@@ -170,6 +176,7 @@ public class GroupService {
             return Optional.empty();
         }
         LOG.infof("User %s joined group %s", jwt.getSubject(), id);
+        metrics.action(AppMetrics.Action.GROUP_JOINED);
         return Optional.of(id);
     }
 

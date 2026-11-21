@@ -1,5 +1,6 @@
 package com.giftloop.claim;
 
+import com.giftloop.observability.AppMetrics;
 import com.giftloop.security.DataAccessException;
 import com.giftloop.security.RlsContext;
 import com.giftloop.security.Sql;
@@ -40,14 +41,17 @@ public class ClaimService {
     private static final Logger LOG = Logger.getLogger(ClaimService.class);
 
     private final RlsContext rls;
+    private final AppMetrics metrics;
 
     /**
      * Creates the service.
      *
-     * @param rls user-scoped DB access
+     * @param rls     user-scoped DB access
+     * @param metrics app metrics
      */
-    public ClaimService(RlsContext rls) {
+    public ClaimService(RlsContext rls, AppMetrics metrics) {
         this.rls = rls;
+        this.metrics = metrics;
     }
 
     /**
@@ -90,6 +94,7 @@ public class ClaimService {
             throw e;
         }
         LOG.infof("User %s claimed %d of gift %s (claim %s)", jwt.getSubject(), form.quantityValue(), giftId, id);
+        metrics.action(AppMetrics.Action.CLAIM_CREATED);
         return id;
     }
 
