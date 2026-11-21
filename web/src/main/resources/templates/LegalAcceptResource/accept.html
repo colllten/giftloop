@@ -7,7 +7,7 @@
   (last updated {legal.updated}). Our <a href="/cookies" target="_blank" rel="noopener">cookie notice</a>
   explains the few cookies we use to keep you signed in.</p>
 {#include LegalAcceptResource/acceptForm error=null /}
-<form method="post" action="/signout" style="margin-top:1rem">
+<form method="post" action="/signout" class="form-gap">
   {#csrf /}
   <button class="link-button" type="submit">Not now, sign me out</button>
 </form>

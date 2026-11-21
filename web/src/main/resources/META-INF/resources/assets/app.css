@@ -190,7 +190,7 @@ details {
   border-radius: var(--radius); padding: var(--space-3) var(--space-4); margin-top: var(--space-4);
 }
 summary { cursor: pointer; font-weight: 700; color: var(--color-primary); min-height: 1.75rem; }
-details form { margin-top: var(--space-4); }
+details form, .form-gap { margin-top: var(--space-4); }
 
 /* ---------- Chips (claim states) ---------- */
 .chip {
