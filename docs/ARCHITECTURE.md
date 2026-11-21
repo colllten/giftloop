@@ -15,7 +15,7 @@ request handling, validation for UX, and rendering.
 
 # API Structure
 APIs follow REST conventions under `/api`. OpenAPI at `/q/openapi`, Swagger UI
-at `/q/swagger-ui` (dev/test only).
+at `/q/swagger-ui` on the management port (dev/test only).
 
 # Database Access Patterns
 Plain JDBC via Agroal ([ADR 002](decisions/002-jdbc-with-transaction-scoped-rls.md)).
@@ -299,6 +299,48 @@ sequenceDiagram
 SQL failures in `RlsContext` are rethrown as `DataAccessException` (500).
 Expected rule outcomes (SQLSTATE class 23, `42501`, `P0002`, `PT429`) are logged at
 DEBUG and mapped by the calling service (e.g. `42501` → 403). Missing/invalid tokens return 401 via SmallRye JWT.
+
+Anything else that escapes a resource reaches `UnhandledErrorMapper`
+([ADR 006](decisions/006-observability-without-vendor.md)). Client errors
+(`WebApplicationException` < 500) pass through unchanged; everything else gets a
+10-char reference ID (`ErrorIds`) and a 500: an error page, an HTMX fragment
+retargeted into `<main>`, or JSON `{error, errorId}` for `/api/**`. Exception
+details never reach the response.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant R as Resource / service
+  participant M as UnhandledErrorMapper
+  participant L as Log (JSON)
+  participant P as Prometheus registry
+  B->>R: request
+  R--xM: unexpected exception
+  M->>L: ERROR errorId, method, path, user id + stack trace
+  M->>P: giftloop.errors.unhandled{exception}
+  M-->>B: 500 page / HTMX fragment / JSON with errorId
+```
+
+# Observability
+[ADR 006](decisions/006-observability-without-vendor.md). Health and metrics are
+on the management port (9000; 9001 in tests): `/q/health`, `/q/metrics`, `/q/openapi` (and Swagger UI in dev)
+(Prometheus). Readiness = Agroal + `SupabaseAuthReadiness`.
+Prod logs are JSON; the `errorId` MDC field links a user's reference to the log.
+
+App metrics go through `AppMetrics` (enum tags only; never user, group, email or URL values):
+
+| Metric | Tags |
+|---|---|
+| `giftloop.errors.unhandled` | `exception` |
+| `giftloop.log.events` (WARN/ERROR from `com.giftloop.*`, via `ErrorLogMetrics`) | `level`, `logger` |
+| `giftloop.rate_limited` | `limit` = join, autofill |
+| `giftloop.auth.codes_sent` | `flow` = signin, signup, reset; `outcome` |
+| `giftloop.auth.signins` | `method` = code, password, reset; `outcome` |
+| `giftloop.auth.refreshes` | `outcome` |
+| `giftloop.actions` | `action` = group_created, group_joined, wishlist_created, gift_added, claim_created, exchange_drawn |
+| `giftloop.autofill` (timer) | `outcome` = invalid_link, fetch_failed, no_details, filled |
+
+Built-in: HTTP server/client, JVM, Agroal pool. Static paths are excluded from HTTP metrics.
 
 # Authorization Boundaries
 - Authentication: Supabase Auth issues JWTs; Quarkus verifies via JWKS.

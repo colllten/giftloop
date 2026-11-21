@@ -73,6 +73,10 @@ Quarkus fetches user-supplied URLs, so `SafeFetcher` restricts them:
 - `giftloop.link-preview.allow-loopback` exists for tests only (`%test`); it
   also allows non-default ports for local fixture servers.
 
+### Management port
+Health and metrics are on port 9000 (ADR 006). Keep it on the private network
+only: metrics reveal traffic volumes and error rates.
+
 ### Production egress (when hosting is chosen)
 Defense in depth for the app container, on whatever platform hosts it:
 - Allow: DNS to the platform resolver; Supabase (HTTPS 443, Postgres 5432/6543);

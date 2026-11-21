@@ -49,7 +49,8 @@ Database (requires Docker and the Supabase CLI; run from `database/`):
 - Emails (sign-in codes): Mailpit at http://127.0.0.1:54324
 
 Web app (Java 25+, run from `web/`; needs the local database running and reset):
-- `./mvnw quarkus:dev` — dev mode on http://localhost:8080 (Swagger UI: /q/swagger-ui)
+- `./mvnw quarkus:dev` — dev mode on http://localhost:8080 (Swagger UI: http://localhost:9000/q/swagger-ui)
+- Management port (health, metrics, OpenAPI): http://localhost:9000/q/health, /q/metrics, /q/openapi
 - `./mvnw test` — tests (run against local Supabase and its seed users)
 - `./mvnw package` — build `target/quarkus-app/`
 

@@ -2,6 +2,7 @@ package com.giftloop.supabase;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -25,6 +26,15 @@ import java.util.Map;
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public interface SupabaseAuthApi {
+
+    /**
+     * Auth service health (used by the readiness check).
+     *
+     * @return completes if Auth answers 2xx; fails otherwise
+     */
+    @GET
+    @Path("/health")
+    Uni<Void> healthAsync();
 
     /**
      * Exchanges credentials or a refresh token for a session.

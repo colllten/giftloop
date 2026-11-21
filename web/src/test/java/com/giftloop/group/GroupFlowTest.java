@@ -1,8 +1,10 @@
 package com.giftloop.group;
 
 import com.giftloop.TestUser;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.response.Response;
+import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -21,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
  */
 @QuarkusTest
 class GroupFlowTest {
+
+    @Inject
+    MeterRegistry registry;
 
     private static TestUser owner;
     private static TestUser second;
@@ -112,6 +117,7 @@ class GroupFlowTest {
      */
     @Test
     void joinRateLimit() {
+        double limited = registry.counter("giftloop.rate_limited", "limit", "join").count();
         UUID id = createGroup("Rate Limit Test");
         String code = joinCode(owner, id);
 
@@ -124,6 +130,7 @@ class GroupFlowTest {
         join(outsider, code).then().statusCode(200).header("HX-Redirect", nullValue())
                 .body(containsString("Too many incorrect codes."));
         outsider.browser().get(path(id, "")).then().statusCode(404);
+        assertEquals(limited + 2, registry.counter("giftloop.rate_limited", "limit", "join").count());
     }
 
     /** Regenerating replaces the code; the old one stops working. Members can't regenerate. */

@@ -1,5 +1,6 @@
 package com.giftloop.exchange;
 
+import com.giftloop.observability.AppMetrics;
 import com.giftloop.security.DataAccessException;
 import com.giftloop.security.RlsContext;
 import com.giftloop.security.Sql;
@@ -44,14 +45,17 @@ public class ExchangeService {
             "not_exchange", "This event isn't a gift exchange.");
 
     private final RlsContext rls;
+    private final AppMetrics metrics;
 
     /**
      * Creates the service.
      *
-     * @param rls user-scoped DB access
+     * @param rls     user-scoped DB access
+     * @param metrics app metrics
      */
-    public ExchangeService(RlsContext rls) {
+    public ExchangeService(RlsContext rls, AppMetrics metrics) {
         this.rls = rls;
+        this.metrics = metrics;
     }
 
     /**
@@ -217,6 +221,7 @@ public class ExchangeService {
     public void draw(JsonWebToken jwt, UUID eventId) {
         call(jwt, "select private.draw_exchange(?)", eventId);
         LOG.infof("User %s drew names for exchange %s", jwt.getSubject(), eventId);
+        metrics.action(AppMetrics.Action.EXCHANGE_DRAWN);
     }
 
     /**

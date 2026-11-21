@@ -4,8 +4,10 @@ import com.giftloop.enrich.AutofillQuota;
 import com.giftloop.enrich.AutofillRateLimitedException;
 import com.giftloop.enrich.LinkPreviewService;
 import com.giftloop.image.Images;
+import com.giftloop.observability.AppMetrics;
 import com.giftloop.security.RequiresOnboarding;
 import com.giftloop.web.Redirects;
+import io.micrometer.core.instrument.Timer;
 import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.qute.TemplateInstance;
 import io.quarkus.security.Authenticated;
@@ -68,6 +70,7 @@ public class WishlistPageResource {
     private final GiftImageService images;
     private final LinkPreviewService previews;
     private final AutofillQuota autofillQuota;
+    private final AppMetrics metrics;
 
     /**
      * Creates the resource.
@@ -77,14 +80,16 @@ public class WishlistPageResource {
      * @param images        gift photo storage
      * @param previews      link auto-fill
      * @param autofillQuota per-user auto-fill rate limit
+     * @param metrics       app metrics (auto-fill timer)
      */
     public WishlistPageResource(JsonWebToken jwt, WishlistService wishlists, GiftImageService images,
-                                LinkPreviewService previews, AutofillQuota autofillQuota) {
+                                LinkPreviewService previews, AutofillQuota autofillQuota, AppMetrics metrics) {
         this.jwt = jwt;
         this.wishlists = wishlists;
         this.images = images;
         this.previews = previews;
         this.autofillQuota = autofillQuota;
+        this.metrics = metrics;
     }
 
     /**
@@ -509,7 +514,9 @@ public class WishlistPageResource {
         } catch (AutofillRateLimitedException e) {
             return GiftFormView.of(wishlist, gift, form, out, autofillLimitedMessage(e.retryAfter()));
         }
+        Timer.Sample timing = metrics.autofillStarted();
         LinkPreviewService.Result result = previews.preview(link);
+        metrics.autofillDone(timing, result.outcome());
         GiftForm filled = form.autofill(result.preview(), link, result.image(),
                 gift != null && gift.imagePath() != null);
         String notice = result.problem() != null ? result.problem()

@@ -2,6 +2,7 @@ package com.giftloop.wishlist;
 
 import com.giftloop.claim.ClaimQueries;
 import com.giftloop.claim.GiftClaims;
+import com.giftloop.observability.AppMetrics;
 import com.giftloop.security.DataAccessException;
 import com.giftloop.security.RlsContext;
 import com.giftloop.security.Sql;
@@ -47,16 +48,19 @@ public class WishlistService {
 
     private final RlsContext rls;
     private final GiftImageService images;
+    private final AppMetrics metrics;
 
     /**
      * Creates the service.
      *
      * @param rls    user-scoped DB access
-     * @param images gift photo storage (cleans up photos of deleted gifts)
+     * @param images  gift photo storage (cleans up photos of deleted gifts)
+     * @param metrics app metrics
      */
-    public WishlistService(RlsContext rls, GiftImageService images) {
+    public WishlistService(RlsContext rls, GiftImageService images, AppMetrics metrics) {
         this.rls = rls;
         this.images = images;
+        this.metrics = metrics;
     }
 
     /**
@@ -69,6 +73,7 @@ public class WishlistService {
      */
     public UUID create(JsonWebToken jwt, UUID eventId) {
         UUID id;
+        boolean[] inserted = {false};
         try {
             id = run(jwt, c -> {
                 try (PreparedStatement s = prepare(c, """
@@ -77,6 +82,7 @@ public class WishlistService {
                         returning id""", eventId);
                      ResultSet r = s.executeQuery()) {
                     if (r.next()) {
+                        inserted[0] = true;
                         return r.getObject(1, UUID.class);
                     }
                 }
@@ -97,6 +103,9 @@ public class WishlistService {
             throw e;
         }
         LOG.infof("User %s opened wishlist %s for event %s", jwt.getSubject(), id, eventId);
+        if (inserted[0]) {
+            metrics.action(AppMetrics.Action.WISHLIST_CREATED);
+        }
         return id;
     }
 
@@ -188,6 +197,7 @@ public class WishlistService {
             return giftId;
         });
         LOG.infof("User %s added gift %s to wishlist %s", jwt.getSubject(), id, wishlistId);
+        metrics.action(AppMetrics.Action.GIFT_ADDED);
         return id;
     }
 
