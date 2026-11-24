@@ -164,6 +164,8 @@ button.primary:hover, .button.primary:hover {
   color: var(--color-on-primary); background: var(--color-primary-hover); border-color: var(--color-primary-hover);
 }
 form > button.primary { width: 100%; }
+/* Opt out of full width so a lone action reads as a button, not a banner. */
+form > button.primary.auto { width: auto; box-shadow: 0 2px 0 var(--color-primary-hover); }
 button + .hint { margin-top: var(--space-2); }
 .link-button {
   min-height: 0; padding: 0; border: none; background: none;
