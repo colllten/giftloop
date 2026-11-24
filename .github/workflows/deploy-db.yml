@@ -31,12 +31,14 @@ jobs:
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v5
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
-          version: 2.106.0
+          version: 3.4.0
       - name: Link project
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+      # CLI v3 targets the local stack by default: --remote is required to hit
+      # the linked project, and --yes to apply hosted changes non-interactively.
       - name: Pending migrations
-        run: supabase db push --dry-run
+        run: supabase db push --remote --dry-run
       - name: Push migrations
-        run: supabase db push
+        run: supabase db push --remote --yes
