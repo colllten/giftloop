@@ -24,12 +24,16 @@ flowchart LR
       verifies ES256 tokens via JWKS.
 - [ ] Auth → Email: **Confirm email on** (required, see [SECURITY.md](SECURITY.md)),
       OTP length 6, minimum password length 8.
-- [ ] Auth → Email templates: **Confirm signup**, **Magic Link** and **Reset
-      Password** each get subject `Your GiftLoop code` and the body of
-      `database/supabase/templates/sign_in_code.html` (shows `{{ .Token }}`,
-      no link). The app only accepts codes; Supabase's default templates send
-      links that point at the Site URL and fail. Migrations don't carry auth
-      config.
+- [ ] Auth → Email templates: paste subject and body from
+      `database/supabase/templates/` (each shows `{{ .Token }}`, no link; the
+      app only accepts codes, and Supabase's default link templates fail).
+      Migrations don't carry auth config.
+
+      | Supabase template | Subject | Body file |
+      |---|---|---|
+      | Magic Link | `Your GiftLoop sign-in code` | `sign_in_code.html` |
+      | Confirm signup | `Confirm your GiftLoop account` | `sign_up_code.html` |
+      | Reset Password | `Reset your GiftLoop password` | `reset_code.html` |
 - [ ] Auth → URL Configuration: Site URL `https://giftloop.fly.dev` (or the
       custom domain). New projects default to `http://localhost:3000`, which
       any email that still has a link would use.

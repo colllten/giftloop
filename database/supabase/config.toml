@@ -248,16 +248,16 @@ otp_expiry = 3600
 # Emailed codes: sign-in and sign-up (magic_link, confirmation), password reset
 # (recovery). All show only the 6-digit code (no links).
 [auth.email.template.magic_link]
-subject = "Your GiftLoop code"
+subject = "Your GiftLoop sign-in code"
 content_path = "./supabase/templates/sign_in_code.html"
 
 [auth.email.template.confirmation]
-subject = "Your GiftLoop code"
-content_path = "./supabase/templates/sign_in_code.html"
+subject = "Confirm your GiftLoop account"
+content_path = "./supabase/templates/sign_up_code.html"
 
 [auth.email.template.recovery]
-subject = "Your GiftLoop code"
-content_path = "./supabase/templates/sign_in_code.html"
+subject = "Reset your GiftLoop password"
+content_path = "./supabase/templates/reset_code.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]
