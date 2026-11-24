@@ -1,0 +1,48 @@
+# Fly.io app config. Deploy from web/ after `./mvnw package` (the Dockerfile copies
+# target/quarkus-app). CI does this on main once enabled; see docs/DEPLOYMENT.md.
+# Secrets (SUPABASE_*) are set with `fly secrets set`, never here.
+app = "giftloop"
+# Keep next to the Supabase project (us-east-1): every request hits the database.
+primary_region = "iad"
+# Quarkus shuts down gracefully on SIGTERM (Fly's default is SIGINT).
+kill_signal = "SIGTERM"
+kill_timeout = "30s"
+
+[build]
+  dockerfile = "src/main/docker/Dockerfile.jvm"
+
+# Only 8080 is public. Fly terminates TLS and sets X-Forwarded-Proto (read by
+# quarkus.http.proxy.*); 9000 (health, metrics) stays on the private network.
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Smallest footprint: stop idle machines, start on the next request.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+# Machine check on the management port; deploys wait for it (DB + Supabase Auth).
+[checks]
+  [checks.ready]
+    type = "http"
+    port = 9000
+    path = "/q/health/ready"
+    method = "GET"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+
+# Fly's managed Prometheus scrapes the private management port (ADR 006).
+[metrics]
+  port = 9000
+  path = "/q/metrics"
+
+# Smallest size that fits a JVM Quarkus app comfortably.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

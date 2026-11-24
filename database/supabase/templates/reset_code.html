@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reset your GiftLoop password</title>
+</head>
+<body style="font-family:Arial,Helvetica,sans-serif;line-height:1.5;margin:0;padding:24px">
+  <h1 style="font-size:20px;margin:0 0 16px">Reset your GiftLoop password</h1>
+  <p>Use this code to reset your GiftLoop password:</p>
+  <p style="font-size:32px;font-weight:bold;letter-spacing:6px;margin:24px 0">{{ .Token }}</p>
+  <p>Enter it on the GiftLoop page you have open. The code expires in 1 hour.</p>
+  <p>If you didn't ask to reset your password, you can ignore this email. Your password has not changed.</p>
+  <hr style="border:none;border-top:1px solid #ccc;margin:24px 0">
+  <p style="font-size:12px">GiftLoop &middot; {{ .SiteURL }}<br>
+  This email was sent to {{ .Email }} because someone entered this address on GiftLoop. GiftLoop will never ask you to share this code with anyone.</p>
+</body>
+</html>

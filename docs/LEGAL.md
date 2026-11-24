@@ -14,8 +14,8 @@ consent checkbox (`tags/legalconsent.html`).
 Config (`application.properties`):
 - `giftloop.legal.version`: ISO date shown as "Last updated". Bumping it makes
   every user re-accept.
-- `giftloop.legal.contact-email`: from `GIFTLOOP_CONTACT_EMAIL`. Required in
-  prod (startup fails without it).
+- `giftloop.legal.contact-email`: `giftloopsupport@gmail.com`, overridable
+  with `GIFTLOOP_CONTACT_EMAIL` (tests use `privacy@example.com`).
 
 Operator name: `LegalInfo.OPERATOR`. Governing law: Indiana. Minimum age: 13.
 
