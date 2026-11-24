@@ -5,7 +5,7 @@ deploys it to Fly.io. Launch steps: [DEPLOYMENT.md](DEPLOYMENT.md).
 | Workflow | Trigger | Does |
 |---|---|---|
 | `ci.yml` | PR, push to `main` | DB lint + pgTAP; `./mvnw verify` against local Supabase; builds `Dockerfile.jvm` (pushes to GHCR on `main`); `deploy` to Fly.io on `main` after approval (opt-in) |
-| `deploy-db.yml` | push to `main` touching `migrations/`, manual | `supabase db push` to prod after approval |
+| `deploy-db.yml` | push to `main` touching `migrations/`, manual | `supabase db push --remote` to prod after approval |
 | `codeql.yml` | PR, push to `main`, weekly | Java static analysis |
 | `dependabot.yml` | weekly | Maven, Actions, Docker base image updates |
 
@@ -16,13 +16,15 @@ flowchart LR
   DB & WEB --> IMG[image: docker build]
   M[Merge to main] --> IMG2[image pushed: ghcr.io/colllten/giftloop:sha-*, latest]
   IMG2 -->|FLY_DEPLOY_ENABLED| APPROVE2{production approval} --> FLY[flyctl deploy, same build]
-  M -->|migrations changed| APPROVE{production approval} --> PUSH[supabase db push]
+  M -->|migrations changed| APPROVE{production approval} --> PUSH[supabase db push --remote]
 ```
 
 ## Notes
 - CI starts Supabase with unused services excluded (`SUPABASE_EXCLUDE` in
   `ci.yml`). If a test starts needing one, remove it from the list.
-- Supabase CLI is pinned (`2.106.0`) in both workflows; bump together.
+- Supabase CLI is pinned (`3.4.0`) in both workflows; bump together. v3
+  commands target the local stack by default, so anything aimed at prod needs
+  `--remote` (and `--yes` for changes, since CI can't answer prompts).
 - `deploy-db` runs after merge, so it relies on CI passing on the PR. Seed data
   is never pushed. Migrations deploy independently of the app, so keep them
   backward compatible with the running version.
