@@ -56,8 +56,18 @@ runs `SET LOCAL ROLE authenticated`, so the role needs nothing else.
 
 ```sql
 create role giftloop_app login noinherit password '<generated>';
-grant authenticated to giftloop_app;
+grant authenticated to giftloop_app with set true;
+
+-- Verify: expect one row, set_option = true. Otherwise every signed-in page
+-- fails with "permission denied to set role authenticated".
+select g.rolname, m.set_option
+from pg_auth_members m
+join pg_roles r on r.oid = m.member
+join pg_roles g on g.oid = m.roleid
+where r.rolname = 'giftloop_app';
 ```
+
+`SUPABASE_DB_USER` is `giftloop_app.<project-ref>` (pooler format).
 
 Connect through the Supabase **session pooler**. Avoid the transaction pooler:
 the JDBC driver's server-side prepared statements break on it.
