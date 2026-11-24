@@ -34,7 +34,7 @@
 {#if !event.myWishlistId}
 <form hx-post="/events/{event.id}/wishlist">
   {#csrf /}
-  <button class="primary" type="submit">Start your wishlist</button>
+  <button class="primary auto" type="submit"><span aria-hidden="true">+</span> Start your wishlist</button>
 </form>
 {/if}
 

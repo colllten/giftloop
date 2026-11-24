@@ -74,7 +74,7 @@ media queries because they can't read custom properties.
 | Class | Purpose |
 |---|---|
 | `button` / `.button` | Outlined secondary action |
-| `.primary` | Filled main action. Full width directly inside a form |
+| `.primary` | Filled main action. Full width directly inside a form; add `.auto` for natural width (lone actions that must not read as a banner/header) |
 | `.link-button` | Button that looks like a link |
 | `.field`, `.hint`, `.row` | Form layout |
 | `.choice` | Radio or checkbox row with its label; the row is the tap target |
